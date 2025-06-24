@@ -1,0 +1,22 @@
+{
+  "name": "bitcoin-classifier-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Bitcoin Address Classifier Frontend",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "svelte": "^4.2.7",
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "svelte-routing": "^2.0.0",
+    "vis-data": "^7.1.9",
+    "vis-network": "^9.1.12"
+  }
+}
