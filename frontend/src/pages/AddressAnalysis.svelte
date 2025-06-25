@@ -67,9 +67,9 @@
   }
 
   function getRiskLevelColor(riskScore) {
-    if (riskScore >= 0.7) return '#dc3545';
-    if (riskScore >= 0.4) return '#ffc107';
-    return '#28a745';
+    if (riskScore >= 0.7) return 'var(--error-color)';
+    if (riskScore >= 0.4) return 'var(--warning-color)';
+    return 'var(--success-color)';
   }
 
   function getRiskLevelText(riskScore) {
@@ -100,15 +100,12 @@
         <h2>Analysis Results</h2>
         <div class="result-actions">
           <button class="btn btn-secondary" on:click={handleShowTransactionGraph}>
-            <span class="btn-icon">📊</span>
             View Transaction Graph
           </button>
           <button class="btn btn-primary" on:click={handleAddToCase}>
-            <span class="btn-icon">📁</span>
             Add to Case
           </button>
-          <button class="btn btn-success" on:click={handleGenerateReport}>
-            <span class="btn-icon">📄</span>
+          <button class="btn btn-secondary" on:click={handleGenerateReport}>
             Generate Report
           </button>
         </div>
@@ -206,18 +203,22 @@
             </select>
           </div>
           <div class="form-group">
-            <label for="case-note">Notes:</label>
+            <label for="case-note">Note:</label>
             <textarea 
               id="case-note" 
-              bind:value={caseNote} 
-              placeholder="Add notes about this address..."
-              rows="4"
+              bind:value={caseNote}
+              placeholder="Add a note about this address..."
+              rows="3"
             ></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" on:click={() => showAddToCaseModal = false}>Cancel</button>
-          <button class="btn btn-primary" on:click={handleAddToCaseSubmit}>Add to Case</button>
+          <button class="btn btn-secondary" on:click={() => showAddToCaseModal = false}>
+            Cancel
+          </button>
+          <button class="btn btn-primary" on:click={handleAddToCaseSubmit}>
+            Add to Case
+          </button>
         </div>
       </div>
     </div>
@@ -232,19 +233,22 @@
           <button class="modal-close" on:click={() => showGenerateReportModal = false}>×</button>
         </div>
         <div class="modal-content">
-          <p>Generate a comprehensive report for address <strong>{currentAddress}</strong>?</p>
-          <p>The report will include:</p>
+          <p>Generate a detailed report for address <strong>{currentAddress}</strong>?</p>
+          <p>This will include:</p>
           <ul>
             <li>Risk assessment and classification</li>
             <li>Feature analysis breakdown</li>
             <li>Transaction history summary</li>
-            <li>Visual transaction graph</li>
             <li>Recommendations and next steps</li>
           </ul>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" on:click={() => showGenerateReportModal = false}>Cancel</button>
-          <button class="btn btn-success" on:click={handleGenerateReportSubmit}>Generate Report</button>
+          <button class="btn btn-secondary" on:click={() => showGenerateReportModal = false}>
+            Cancel
+          </button>
+          <button class="btn btn-primary" on:click={handleGenerateReportSubmit}>
+            Generate Report
+          </button>
         </div>
       </div>
     </div>
@@ -255,198 +259,186 @@
   .address-analysis {
     max-width: 1200px;
     margin: 0 auto;
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-normal);
+    color: var(--text-primary);
   }
 
   .page-header {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-xl);
   }
 
   .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #2c3e50;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-family);
+    letter-spacing: -0.02em;
+    line-height: var(--line-height-tight);
   }
 
   .page-header p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-lg);
     margin: 0;
-    color: #6c757d;
-    font-size: 1.1rem;
+    line-height: var(--line-height-normal);
+    font-family: var(--font-family);
   }
 
   .analysis-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-xl);
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
   }
 
-  /* Results Section */
   .results-section {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
+    margin-top: var(--spacing-xl);
   }
 
   .results-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
   }
 
   .results-header h2 {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    letter-spacing: -0.02em;
+    line-height: var(--line-height-tight);
   }
 
   .result-actions {
     display: flex;
-    gap: 1rem;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
   }
 
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-  }
-
-  .btn-primary {
-    background-color: #007bff;
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background-color: #0056b3;
-  }
-
-  .btn-secondary {
-    background-color: #6c757d;
-    color: white;
-  }
-
-  .btn-secondary:hover {
-    background-color: #545b62;
-  }
-
-  .btn-success {
-    background-color: #28a745;
-    color: white;
-  }
-
-  .btn-success:hover {
-    background-color: #1e7e34;
-  }
-
-  .btn-icon {
-    margin-right: 0.5rem;
-  }
-
-  /* Results Grid */
   .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: var(--spacing-lg);
   }
 
   .result-card {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 1.5rem;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-normal);
+    box-shadow: none;
   }
 
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-lg);
   }
 
   .card-header h3 {
     margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    letter-spacing: -0.02em;
+    line-height: var(--line-height-tight);
   }
 
   .risk-badge {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--border-radius-md);
     color: white;
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: none;
+    border: 1px solid var(--border-color);
   }
 
   .risk-score {
     text-align: center;
-    margin: 1rem 0;
+    margin-bottom: var(--spacing-lg);
   }
 
   .score-circle {
-    width: 80px;
-    height: 80px;
+    width: 120px;
+    height: 120px;
     border: 4px solid;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto;
+    margin: 0 auto var(--spacing-md);
+    background: var(--background-secondary);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
+    box-shadow: none;
   }
 
   .score-value {
-    font-size: 1.2rem;
-    font-weight: 700;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
+    font-family: var(--font-family);
   }
 
   .risk-description {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: var(--line-height-normal);
     margin: 0;
-    color: #6c757d;
-    font-size: 0.9rem;
+    font-family: var(--font-family);
   }
 
-  /* Features List */
   .features-list {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-sm);
   }
 
   .feature-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid #e9ecef;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--border-color-light);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-normal);
+  }
+
+  .feature-item:last-child {
+    border-bottom: none;
   }
 
   .feature-name {
-    font-weight: 500;
-    color: #2c3e50;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-family);
   }
 
   .feature-value {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
     font-family: monospace;
-    color: #6c757d;
-    font-size: 0.85rem;
   }
 
-  /* Address Info */
   .address-info {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--spacing-md);
   }
 
   .info-item {
@@ -456,20 +448,23 @@
   }
 
   .info-label {
-    font-weight: 500;
-    color: #2c3e50;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-family);
   }
 
   .info-value {
-    color: #6c757d;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    font-family: var(--font-family);
   }
 
   .info-value.address {
     font-family: monospace;
-    background-color: #e9ecef;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
+    background: var(--background-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
   }
 
   /* Modal Styles */
@@ -479,108 +474,97 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
     z-index: 1000;
-    padding: 1rem;
+    padding: var(--spacing-lg);
   }
 
   .modal {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    width: 100%;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
     max-width: 500px;
+    width: 100%;
     max-height: 90vh;
     overflow-y: auto;
   }
 
   .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .modal-header h3 {
     margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
   }
 
   .modal-close {
     background: none;
     border: none;
-    font-size: 1.5rem;
+    font-size: var(--font-size-xl);
+    color: var(--text-tertiary);
     cursor: pointer;
-    color: #6c757d;
     padding: 0;
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: var(--border-radius-sm);
+    transition: all var(--transition-fast);
   }
 
   .modal-close:hover {
-    color: #2c3e50;
+    background: var(--background-secondary);
+    color: var(--text-primary);
   }
 
   .modal-content {
-    padding: 1.5rem;
+    padding: var(--spacing-lg);
+  }
+
+  .modal-content p {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-secondary);
+  }
+
+  .modal-content ul {
+    margin: 0 0 var(--spacing-lg) 0;
+    padding-left: var(--spacing-lg);
+    color: var(--text-secondary);
+  }
+
+  .modal-content li {
+    margin-bottom: var(--spacing-xs);
   }
 
   .modal-footer {
-    padding: 1.5rem;
-    border-top: 1px solid #e9ecef;
     display: flex;
     justify-content: flex-end;
-    gap: 1rem;
-  }
-
-  /* Form Styles */
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #2c3e50;
-  }
-
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-family: inherit;
-  }
-
-  .form-group select:focus,
-  .form-group textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
   }
 
   /* Responsive Design */
   @media (max-width: 768px) {
     .results-header {
       flex-direction: column;
-      gap: 1rem;
-      align-items: stretch;
+      align-items: flex-start;
     }
 
     .result-actions {
-      flex-direction: column;
+      width: 100%;
+      justify-content: flex-start;
     }
 
     .results-grid {
@@ -588,7 +572,7 @@
     }
 
     .modal {
-      margin: 1rem;
+      margin: var(--spacing-md);
     }
   }
 </style> 

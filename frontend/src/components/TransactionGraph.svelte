@@ -231,7 +231,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -240,9 +240,10 @@
   }
   
   .graph-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    background: var(--background-primary);
+    border-radius: var(--border-radius-lg);
+    box-shadow: none;
+    border: 1px solid var(--border-color);
     width: 100%;
     max-width: 95vw;
     height: 90vh;
@@ -257,18 +258,38 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-primary);
   }
   
-  .graph-header h3 { margin: 0; font-size: 1.1rem; }
+  .graph-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-family: var(--font-family);
+  }
   .graph-controls { display: flex; gap: 0.5rem; align-items: center; }
   .refresh-btn, .close-btn {
-    background: none; border: none; font-size: 1.2rem; cursor: pointer;
-    padding: 0.5rem; border-radius: 6px; transition: all 0.2s;
-    width: 36px; height: 36px;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--border-radius-md);
+    transition: all 0.2s;
+    width: 36px;
+    height: 36px;
+    color: var(--text-secondary);
   }
-  .refresh-btn:hover { background-color: #e9ecef; transform: rotate(180deg); }
-  .close-btn:hover { background-color: #dc3545; color: white; }
+  .refresh-btn:hover {
+    background-color: var(--background-secondary);
+    color: var(--accent-color);
+    transform: rotate(180deg);
+  }
+  .close-btn:hover {
+    background-color: var(--error-color);
+    color: white;
+  }
   
   .graph-content-wrapper {
     flex: 1;
@@ -278,6 +299,7 @@
     align-items: center;
     overflow: hidden;
     min-height: 0;
+    background: var(--background-primary);
   }
   
   .network-container {
@@ -297,13 +319,16 @@
 
   .message-area {
     text-align: center;
-    color: #6c757d;
+    color: var(--text-secondary);
+    background: var(--background-primary);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
   }
   
   .error-message {
     background-color: #f8d7da;
     border: 1px solid #f5c6cb;
-    border-radius: 8px;
+    border-radius: var(--border-radius-md);
     padding: 1.5rem;
     margin: 1rem;
     color: #721c24;
@@ -326,17 +351,28 @@
     display: flex;
     gap: 1rem;
     padding: 0.75rem 1.5rem;
-    background-color: #f8f9fa;
-    border-top: 1px solid #e9ecef;
+    background-color: var(--background-secondary);
+    border-top: 1px solid var(--border-color);
     font-size: 0.8rem;
-    color: #6c757d;
+    color: var(--text-secondary);
   }
   
   .loading-spinner {
-    width: 20px; height: 20px;
-    border: 2px solid transparent; border-top-color: #007bff;
-    border-radius: 50%; animation: spin 1s linear infinite;
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
   }
-  .loading-spinner.large { width: 40px; height: 40px; border-width: 3px; }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .loading-spinner.large {
+    width: 40px;
+    height: 40px;
+    border-width: 3px;
+    border-top-color: var(--accent-color);
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 </style> 

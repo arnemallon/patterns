@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Router, Link, Route } from 'svelte-routing';
   import { fly, fade } from 'svelte/transition';
+  import './app.css';
   
   // Import all the page components
   import Dashboard from './pages/Dashboard.svelte';
@@ -85,7 +86,7 @@
               <div class="user-info">
                 <span class="user-name">{currentUser.username}</span>
               </div>
-              <button class="logout-btn" on:click={handleLogout}>
+              <button class="btn btn-secondary logout-btn" on:click={handleLogout}>
                 Logout
               </button>
             </div>
@@ -123,15 +124,6 @@
 {/if}
 
 <style>
-  :global(body) {
-    margin: 0;
-    background-color: #f8f9fa;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    color: #212529;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
   /* App Layout */
   .app-layout {
     display: flex;
@@ -141,12 +133,11 @@
   /* Sidebar */
   .sidebar {
     width: 280px;
-    background: #f8f9fa;
-    color: #495057;
+    background: var(--background-primary);
+    color: var(--text-primary);
     display: flex;
     flex-direction: column;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-    border-right: 1px solid #e9ecef;
+    border-right: 1px solid var(--border-color);
     position: fixed;
     top: 0;
     left: 0;
@@ -155,21 +146,21 @@
   }
 
   .sidebar-header {
-    padding: 2rem 1.5rem 1rem;
-    border-bottom: 1px solid #e9ecef;
-    background: #ffffff;
+    padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-primary);
   }
 
   .sidebar-header h2 {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
   }
 
   .nav-links {
     flex: 1;
-    padding: 1rem 0;
+    padding: var(--spacing-md) 0;
     display: flex;
     flex-direction: column;
   }
@@ -177,91 +168,63 @@
   .nav-links :global(a.nav-link) {
     display: flex;
     align-items: center;
-    padding: 0.85rem 1.5rem;
-    color: #495057; /* Default link color */
-    text-decoration: none !important; /* Remove underline */
-    transition: all 0.2s ease;
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--text-secondary);
+    text-decoration: none !important;
+    transition: all var(--transition-fast);
     border-left: 3px solid transparent;
-    font-weight: 500;
-    margin: 0.2rem 0;
+    font-weight: var(--font-weight-medium);
+    margin: var(--spacing-xs) 0;
+    font-size: var(--font-size-sm);
   }
 
   .nav-links :global(a.nav-link:visited) {
-    color: #495057; /* Visited link color */
+    color: var(--text-secondary);
   }
 
   .nav-links :global(a.nav-link:hover) {
-    background-color: #e9ecef;
-    color: #2c3e50;
+    background-color: var(--background-secondary);
+    color: var(--text-primary);
   }
 
   .nav-links :global(a.nav-link.active) {
-    background-color: #e9ecef;
-    border-left-color: #007bff;
-    color: #007bff;
-    font-weight: 600;
-  }
-
-  .nav-icon {
-    margin-right: 0.75rem;
-    font-size: 0.9rem;
-    width: 20px;
-    text-align: center;
-    font-weight: 600;
-    color: #6c757d;
+    background-color: var(--background-secondary);
+    border-left-color: var(--accent-color);
+    color: var(--accent-color);
+    font-weight: var(--font-weight-semibold);
   }
 
   .sidebar-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e9ecef;
-    background: #ffffff;
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    background: var(--background-primary);
     margin-top: auto;
   }
 
   .user-info {
     display: flex;
     align-items: center;
-    margin-bottom: 1rem;
-  }
-
-  .user-avatar {
-    margin-right: 0.5rem;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #6c757d;
+    margin-bottom: var(--spacing-md);
   }
 
   .user-name {
-    font-weight: 500;
-    color: #2c3e50;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
   }
 
   .logout-btn {
     width: 100%;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    color: #495057;
-    padding: 0.5rem;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    font-weight: 500;
-  }
-
-  .logout-btn:hover {
-    background: #e9ecef;
-    color: #2c3e50;
+    font-size: var(--font-size-sm);
   }
 
   /* Main Content */
   .main-content {
     flex: 1;
-    padding: 2rem;
+    padding: var(--spacing-xl);
     overflow-y: auto;
-    margin-left: 280px; /* Same as sidebar width */
+    margin-left: 280px;
+    background-color: var(--background-secondary);
   }
 
   /* Auth Container */
@@ -270,7 +233,7 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--background-secondary);
   }
 
   /* Loading Screen */
@@ -279,22 +242,22 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--background-secondary);
   }
 
   .loading-content {
     text-align: center;
-    color: white;
+    color: var(--text-primary);
   }
 
   .loading-spinner {
     width: 60px;
     height: 60px;
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-top: 4px solid white;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--accent-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin: 0 auto 2rem;
+    margin: 0 auto var(--spacing-xl);
   }
 
   @keyframes spin {
@@ -303,36 +266,15 @@
   }
 
   .loading-content h2 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.5rem;
-    font-weight: 600;
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
   }
 
   .loading-content p {
     margin: 0;
     opacity: 0.8;
-    font-size: 1rem;
-  }
-
-  /* Global smooth scrolling */
-  :global(html) {
-    scroll-behavior: smooth;
-  }
-
-  /* Global transition for all interactive elements */
-  :global(button, input, select, textarea) {
-    transition: all 0.2s ease-in-out;
-  }
-
-  /* Global focus styles */
-  :global(*:focus) {
-    outline: 2px solid #007bff;
-    outline-offset: 2px;
-  }
-
-  /* Global selection styles */
-  :global(::selection) {
-    background-color: #007bff;
-    color: white;
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
   }
 </style> 

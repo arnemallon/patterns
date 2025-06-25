@@ -104,14 +104,6 @@
       disabled={loading}
       class:loading={loading}
     />
-    <button type="submit" disabled={loading || !address.trim()}>
-      {#if loading}
-        <div class="loading-spinner"></div>
-        Analyzing...
-      {:else}
-        Classify
-      {/if}
-    </button>
   </form>
   
   {#if error}
@@ -154,7 +146,7 @@
       <div class="result-main">
         <div class="category-display">
           {#if categoryInfo}
-            <div class="category-icon" style="background-color: {categoryInfo.color}; box-shadow: 0 4px 12px {categoryInfo.color}66;">
+            <div class="category-icon" style="background-color: {categoryInfo.color}; box-shadow: none;">
               <span class="icon">{categoryInfo.icon}</span>
             </div>
           {/if}
@@ -244,23 +236,29 @@
 
   input {
     flex-grow: 1;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     padding: 0.75rem 1rem;
     font-size: 1rem;
     border-radius: 6px;
-    background-color: #fff;
+    background-color: var(--background-primary);
+    color: var(--text-primary);
     transition: border-color 0.2s, box-shadow 0.2s;
   }
 
   input:focus {
     outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+    border-color: var(--accent-color);
+    box-shadow: none;
   }
 
   input.loading {
-    border-color: #007bff;
-    background-color: #f8f9fa;
+    border-color: var(--accent-color);
+    background-color: var(--background-secondary);
+  }
+
+  ::placeholder {
+    color: var(--text-secondary);
+    opacity: 1;
   }
 
   button {
@@ -293,11 +291,17 @@
     box-shadow: none;
   }
 
+  button:focus {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
   .loading-spinner {
     width: 16px;
     height: 16px;
     border: 2px solid transparent;
-    border-top: 2px solid currentColor;
+    border-top: 2px solid var(--accent-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -324,25 +328,24 @@
 
   /* Loading Skeleton Styles */
   .loading-skeleton {
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-color-light);
     border-radius: 8px;
     margin-top: 2rem;
     overflow: hidden;
+    background: var(--background-secondary);
   }
 
   .skeleton-header {
     padding: 1rem 1.5rem;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background-color: var(--background-secondary);
+    border-bottom: 1px solid var(--border-color);
   }
 
-  .skeleton-title {
-    height: 1.5rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  .skeleton-title, .skeleton-label, .skeleton-value, .skeleton-feature-label, .skeleton-feature-value {
+    background: linear-gradient(90deg, var(--background-tertiary) 25%, var(--background-secondary) 50%, var(--background-tertiary) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 4px;
-    width: 60%;
   }
 
   .skeleton-body {
@@ -356,29 +359,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-  }
-
-  .skeleton-label {
-    height: 1rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    width: 30%;
-  }
-
-  .skeleton-value {
-    height: 1rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    width: 40%;
-  }
-
-  .skeleton-features {
-    border-top: 1px solid #e9ecef;
-    padding: 1.5rem;
   }
 
   .skeleton-feature-grid {
@@ -420,16 +400,16 @@
   }
 
   .result-card {
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--border-color);
     border-radius: 12px;
     margin-top: 2rem;
     overflow: hidden;
-    background-color: #fff;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    background-color: var(--background-primary);
+    box-shadow: none;
     transition: box-shadow 0.3s ease;
   }
   .result-card:hover {
-    box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+    box-shadow: none;
   }
 
   .result-main {
@@ -438,6 +418,7 @@
     align-items: center;
     padding: 1.5rem;
     gap: 1.5rem;
+    background: var(--background-primary);
   }
   
   .category-display {
@@ -456,6 +437,8 @@
     font-size: 1.8rem;
     color: white;
     flex-shrink: 0;
+    background: var(--background-primary);
+    box-shadow: none;
   }
   
   .category-text .label {
@@ -483,7 +466,7 @@
 
   .gauge-base {
     fill: none;
-    stroke: #f3f3f3;
+    stroke: var(--border-color);
     stroke-width: 3.8;
   }
 
@@ -512,12 +495,13 @@
 
   .result-footer {
     padding: 1rem 1.5rem;
-    background-color: #f9fafb;
-    border-top: 1px solid #e9ecef;
+    background-color: var(--background-secondary);
+    border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 1rem;
+    box-shadow: none;
   }
 
   .footer-item {
@@ -525,12 +509,18 @@
     flex-direction: column;
   }
   
-  .footer-item .label { font-size: 0.75rem; color: #888; }
+  .footer-item .label { font-size: 0.75rem; color: var(--text-secondary); }
   .footer-item.address-item .value code {
     background-color: transparent;
     padding: 0;
     font-size: 0.9em;
     word-break: break-all;
+    color: var(--text-primary);
+  }
+  
+  .footer-item.address-item .value code:focus {
+    outline: none;
+    box-shadow: none;
   }
   
   .action-item {
@@ -539,8 +529,8 @@
 
   .graph-btn {
     background-color: transparent;
-    color: #007bff;
-    border: 1px solid #dee2e6;
+    color: var(--accent-color);
+    border: 1.5px solid var(--border-color);
     padding: 0.5rem 1rem;
     font-size: 0.85rem;
     font-weight: 500;
@@ -549,14 +539,14 @@
   }
 
   .graph-btn:hover {
-    background-color: #007bff;
+    background-color: var(--accent-color);
     color: white;
-    border-color: #007bff;
+    border-color: var(--accent-color);
   }
   
   .features-details {
     padding: 1rem 1.5rem;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--border-color);
   }
 
   .features-details summary {
@@ -576,7 +566,7 @@
   
   .feature-item {
     padding: 0.75rem;
-    background-color: #f8f9fa;
+    background-color: var(--background-tertiary);
     border-radius: 6px;
   }
 
