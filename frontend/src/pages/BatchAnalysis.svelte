@@ -111,11 +111,6 @@
 </script>
 
 <div class="batch-analysis" in:fly={{ y: 20, duration: 500 }}>
-  <div class="page-header">
-    <h1>Batch Analysis</h1>
-    <p>Analyze multiple Bitcoin addresses simultaneously for efficient investigation.</p>
-  </div>
-
   <!-- Input Section -->
   <div class="input-section">
     <div class="input-methods">
@@ -231,24 +226,6 @@
     font-family: var(--font-family);
     color: var(--text-primary);
     font-weight: var(--font-weight-normal);
-  }
-  .page-header {
-    margin-bottom: var(--spacing-xl);
-  }
-  .page-header h1 {
-    margin-bottom: var(--spacing-sm);
-    color: var(--text-primary);
-    font-weight: var(--font-weight-semibold);
-    font-family: var(--font-family);
-    letter-spacing: -0.02em;
-    line-height: var(--line-height-tight);
-  }
-  .page-header p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-lg);
-    margin: 0;
-    line-height: var(--line-height-normal);
-    font-family: var(--font-family);
   }
   .input-section {
     background: var(--background-primary);

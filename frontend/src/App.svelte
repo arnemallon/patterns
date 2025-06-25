@@ -3,6 +3,8 @@
   import { Router, Link, Route } from 'svelte-routing';
   import { fly, fade } from 'svelte/transition';
   import './app.css';
+  import { useLocation } from 'svelte-routing';
+  import { afterUpdate, tick } from 'svelte';
   
   // Import all the page components
   import Dashboard from './pages/Dashboard.svelte';
@@ -19,6 +21,26 @@
 
   let pageLoaded = false;
   let currentUser = null; // This would be managed by a store in a real implementation
+
+  const location = useLocation();
+
+  let indicatorY = 0;
+  let indicatorScale = 1;
+
+  // Track nav link refs
+  let navLink0, navLink1, navLink2, navLink3, navLink4, navLink5, navLink6;
+  $: navLinks = [navLink0, navLink1, navLink2, navLink3, navLink4, navLink5, navLink6];
+
+  $: activeIndex = navLinks.findIndex(link => link && typeof link.getAttribute === 'function' && link.getAttribute('aria-current') === 'page');
+
+  // Update indicator position after DOM updates
+  $: {
+    if (navLinks[activeIndex]) {
+      const el = navLinks[activeIndex];
+      indicatorY = el.offsetTop;
+      indicatorScale = el.offsetHeight / 48; // 48px is the default nav-link height
+    }
+  }
 
   // Check for existing user session on load
   onMount(() => {
@@ -44,6 +66,19 @@
     // Redirect to login page
     window.location.href = '/login';
   }
+
+  function getSectionTitle(path) {
+    switch (path) {
+      case '/': return 'Dashboard';
+      case '/analysis': return 'Address Analysis';
+      case '/batch': return 'Batch Analysis';
+      case '/cases': return 'Cases';
+      case '/alerts': return 'Alerts';
+      case '/history': return 'History';
+      case '/settings': return 'Settings';
+      default: return '';
+    }
+  }
 </script>
 
 {#if pageLoaded}
@@ -55,31 +90,19 @@
           <!-- Sidebar Navigation -->
           <nav class="sidebar">
             <div class="sidebar-header">
-              <h2>Bitcoin Classifier</h2>
+              <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
             </div>
-            
-            <div class="nav-links">
-              <Link to="/" class="nav-link">
-                Dashboard
-              </Link>
-              <Link to="/analysis" class="nav-link">
-                Address Analysis
-              </Link>
-              <Link to="/batch" class="nav-link">
-                Batch Analysis
-              </Link>
-              <Link to="/cases" class="nav-link">
-                Cases
-              </Link>
-              <Link to="/alerts" class="nav-link">
-                Alerts
-              </Link>
-              <Link to="/history" class="nav-link">
-                History
-              </Link>
-              <Link to="/settings" class="nav-link">
-                Settings
-              </Link>
+            <div class="nav-links" style="position: relative;">
+              {#if activeIndex >= 0}
+                <div class="nav-indicator" style="transform: translateY({indicatorY}px) scaleY({indicatorScale});"></div>
+              {/if}
+              <Link to="/" class="nav-link" bind:this={navLink0}>Dashboard</Link>
+              <Link to="/analysis" class="nav-link" bind:this={navLink1}>Address Analysis</Link>
+              <Link to="/batch" class="nav-link" bind:this={navLink2}>Batch Analysis</Link>
+              <Link to="/cases" class="nav-link" bind:this={navLink3}>Cases</Link>
+              <Link to="/alerts" class="nav-link" bind:this={navLink4}>Alerts</Link>
+              <Link to="/history" class="nav-link" bind:this={navLink5}>History</Link>
+              <Link to="/settings" class="nav-link" bind:this={navLink6}>Settings</Link>
             </div>
             
             <div class="sidebar-footer">
@@ -151,11 +174,11 @@
     background: var(--background-primary);
   }
 
-  .sidebar-header h2 {
-    margin: 0;
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
+  .sidebar-header img {
+    height: 2.5rem;
+    width: auto;
+    display: block;
+    margin-bottom: var(--spacing-lg);
   }
 
   .nav-links {
@@ -163,6 +186,7 @@
     padding: var(--spacing-md) 0;
     display: flex;
     flex-direction: column;
+    position: relative;
   }
 
   .nav-links :global(a.nav-link) {
@@ -176,6 +200,8 @@
     font-weight: var(--font-weight-medium);
     margin: var(--spacing-xs) 0;
     font-size: var(--font-size-sm);
+    position: relative;
+    z-index: 2;
   }
 
   .nav-links :global(a.nav-link:visited) {
@@ -187,11 +213,15 @@
     color: var(--text-primary);
   }
 
-  .nav-links :global(a.nav-link.active) {
-    background-color: var(--background-secondary);
-    border-left-color: var(--accent-color);
+  .nav-links :global(a.nav-link[aria-current='page']) {
     color: var(--accent-color);
-    font-weight: var(--font-weight-semibold);
+    border-left: 3px solid var(--accent-color);
+    background: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.01em;
+    box-shadow: none;
+    transition: color 0.2s, border-color 0.2s;
   }
 
   .sidebar-footer {
@@ -276,5 +306,23 @@
     opacity: 0.8;
     font-size: var(--font-size-base);
     color: var(--text-secondary);
+  }
+
+  .sidebar-logo {
+    height: 2.5rem;
+    width: auto;
+    display: block;
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .nav-indicator {
+    position: absolute;
+    left: 0;
+    width: 3px;
+    height: 48px;
+    background: var(--accent-color);
+    border-radius: 2px;
+    transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    z-index: 1;
   }
 </style> 

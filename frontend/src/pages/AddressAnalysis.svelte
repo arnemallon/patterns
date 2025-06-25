@@ -80,11 +80,6 @@
 </script>
 
 <div class="address-analysis" in:fly={{ y: 20, duration: 500 }}>
-  <div class="page-header">
-    <h1>Address Analysis</h1>
-    <p>Analyze individual Bitcoin addresses for suspicious activity and risk assessment.</p>
-  </div>
-
   <!-- Main Analysis Section -->
   <div class="analysis-container">
     <AddressClassifier 
@@ -262,27 +257,6 @@
     font-family: var(--font-family);
     font-weight: var(--font-weight-normal);
     color: var(--text-primary);
-  }
-
-  .page-header {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .page-header h1 {
-    margin-bottom: var(--spacing-sm);
-    color: var(--text-primary);
-    font-weight: var(--font-weight-semibold);
-    font-family: var(--font-family);
-    letter-spacing: -0.02em;
-    line-height: var(--line-height-tight);
-  }
-
-  .page-header p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-lg);
-    margin: 0;
-    line-height: var(--line-height-normal);
-    font-family: var(--font-family);
   }
 
   .analysis-container {

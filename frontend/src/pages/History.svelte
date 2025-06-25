@@ -14,11 +14,6 @@
 </script>
 
 <div class="history" in:fly={{ y: 20, duration: 500 }}>
-  <div class="page-header">
-    <h1>Classification History</h1>
-    <p>View and manage your Bitcoin address classification history.</p>
-  </div>
-
   <!-- Filters -->
   <div class="filters-section">
     <div class="filters-grid">
@@ -66,6 +61,9 @@
   .history {
     max-width: 1200px;
     margin: 0 auto;
+    font-family: var(--font-family);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-normal);
   }
 
   .page-header {
@@ -87,17 +85,17 @@
 
   /* Filters Section */
   .filters-section {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    padding: 1.5rem;
-    margin-bottom: 2rem;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
   }
 
   .filters-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
+    gap: var(--spacing-lg);
   }
 
   .filter-group {
@@ -106,33 +104,35 @@
   }
 
   .filter-group label {
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #2c3e50;
-    font-size: 0.9rem;
+    margin-bottom: var(--spacing-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
   }
 
   .filter-group input,
   .filter-group select {
-    padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-family: inherit;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family);
+    background: var(--background-primary);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
   }
 
   .filter-group input:focus,
   .filter-group select:focus {
     outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    border-color: var(--accent-color);
   }
 
   /* History Container */
   .history-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
     overflow: hidden;
   }
 

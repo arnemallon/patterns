@@ -87,11 +87,6 @@
 </script>
 
 <div class="dashboard" in:fly={{ y: 20, duration: 500 }}>
-  <div class="dashboard-header">
-    <h1>Dashboard</h1>
-    <p>Welcome back! Here's what's happening with your Bitcoin analysis.</p>
-  </div>
-
   <!-- Statistics Cards -->
   <div class="stats-grid">
     <div class="stat-card">

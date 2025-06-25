@@ -1,5 +1,6 @@
 <script>
   import { fly, fade } from 'svelte/transition';
+  import { navigate } from 'svelte-routing';
 
   let username = '';
   let email = '';
@@ -31,7 +32,7 @@
     setTimeout(() => {
       console.log('Registration successful');
       // In real implementation, this would redirect to login
-      window.location.href = '/login';
+      navigate('/login', { replace: true });
     }, 1000);
   }
 
@@ -43,85 +44,85 @@
 </script>
 
 <div class="auth-page" in:fly={{ y: 20, duration: 500 }}>
-  <div class="auth-container">
-    <div class="auth-card" in:fade={{ duration: 300 }}>
-      <div class="auth-header">
-        <div class="logo">🔍</div>
-        <h1>Bitcoin Classifier</h1>
-        <p>Create your account</p>
-      </div>
-
-      <form class="auth-form" on:submit|preventDefault={handleRegister}>
-        {#if error}
-          <div class="error-message" in:fade>
-            {error}
-          </div>
-        {/if}
-
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input 
-            id="username"
-            type="text"
-            bind:value={username}
-            on:keypress={handleKeyPress}
-            placeholder="Choose a username"
-            disabled={isLoading}
-          />
+  <div class="auth-center-group">
+    <div class="auth-container">
+      <div class="auth-card" in:fade={{ duration: 300 }}>
+        <div class="auth-header">
+          <h1>Sign Up</h1>
         </div>
 
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input 
-            id="email"
-            type="email"
-            bind:value={email}
-            on:keypress={handleKeyPress}
-            placeholder="Enter your email"
-            disabled={isLoading}
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input 
-            id="password"
-            type="password"
-            bind:value={password}
-            on:keypress={handleKeyPress}
-            placeholder="Create a password"
-            disabled={isLoading}
-          />
-        </div>
-
-        <div class="form-group">
-          <label for="confirm-password">Confirm Password</label>
-          <input 
-            id="confirm-password"
-            type="password"
-            bind:value={confirmPassword}
-            on:keypress={handleKeyPress}
-            placeholder="Confirm your password"
-            disabled={isLoading}
-          />
-        </div>
-
-        <button 
-          type="submit" 
-          class="btn btn-primary"
-          disabled={isLoading}
-        >
-          {#if isLoading}
-            <span class="loading-spinner"></span>
-            Creating account...
-          {:else}
-            Create Account
+        <form class="auth-form" on:submit|preventDefault={handleRegister}>
+          {#if error}
+            <div class="error-message" in:fade>
+              {error}
+            </div>
           {/if}
-        </button>
-      </form>
 
-      <div class="auth-footer">
-        <p>Already have an account? <a href="/login">Sign in</a></p>
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input 
+              id="username"
+              type="text"
+              bind:value={username}
+              on:keypress={handleKeyPress}
+              placeholder="Choose a username"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input 
+              id="email"
+              type="email"
+              bind:value={email}
+              on:keypress={handleKeyPress}
+              placeholder="Enter your email"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+              id="password"
+              type="password"
+              bind:value={password}
+              on:keypress={handleKeyPress}
+              placeholder="Create a password"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="confirm-password">Confirm Password</label>
+            <input 
+              id="confirm-password"
+              type="password"
+              bind:value={confirmPassword}
+              on:keypress={handleKeyPress}
+              placeholder="Confirm your password"
+              disabled={isLoading}
+            />
+          </div>
+
+          <button 
+            type="submit" 
+            class="btn btn-primary login-btn"
+            disabled={isLoading}
+          >
+            {#if isLoading}
+              <span class="loading-spinner"></span>
+              Creating account...
+            {:else}
+              Create Account
+            {/if}
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          <p>Already have an account? <a href="/login">Sign in</a></p>
+        </div>
       </div>
     </div>
   </div>
@@ -130,127 +131,145 @@
 <style>
   .auth-page {
     min-height: 100vh;
+    width: 100vw;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 1rem;
+    background: var(--background-secondary);
+    padding: 0;
+  }
+
+  .auth-center-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
   }
 
   .auth-container {
     width: 100%;
-    max-width: 400px;
+    max-width: 340px;
+    min-width: 340px;
   }
 
   .auth-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    width: 340px;
+    height: 650px; /* Adjusted for additional form fields */
+    box-sizing: border-box;
   }
 
   .auth-header {
     text-align: center;
-    margin-bottom: 2rem;
-  }
-
-  .logo {
-    font-size: 3rem;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-xl);
+    margin-top: 40px;
   }
 
   .auth-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #2c3e50;
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
   }
 
   .auth-header p {
     margin: 0;
-    color: #6c757d;
-    font-size: 1rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
   }
 
   .auth-form {
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-xl);
   }
 
   .error-message {
-    background-color: #f8d7da;
-    color: #721c24;
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
+    background-color: #fef2f2;
+    color: var(--error-color);
+    padding: var(--spacing-md);
+    border: 1px solid #fecaca;
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+    font-size: var(--font-size-sm);
   }
 
   .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--spacing-lg);
   }
 
   .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #2c3e50;
+    margin-bottom: var(--spacing-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
   }
 
   .form-group input {
     width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-family: inherit;
-    transition: border-color 0.2s ease;
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-base);
+    font-family: var(--font-family);
+    background-color: var(--background-primary);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast);
   }
 
   .form-group input:focus {
     outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    border-color: var(--accent-color);
   }
 
   .form-group input:disabled {
-    background-color: #f8f9fa;
+    background-color: var(--background-secondary);
+    color: var(--text-tertiary);
     cursor: not-allowed;
   }
 
   .btn {
     width: 100%;
-    padding: 0.75rem;
+    padding: var(--spacing-md);
     border: none;
-    border-radius: 6px;
-    font-size: 1rem;
-    font-weight: 500;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    font-family: var(--font-family);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-  }
-
-  .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    gap: var(--spacing-sm);
   }
 
   .btn-primary {
-    background-color: #007bff;
+    background-color: var(--accent-color);
     color: white;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background-color: #0056b3;
+    background-color: var(--accent-hover);
+  }
+
+  .btn-primary:disabled {
+    background-color: var(--border-color);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+  }
+
+  .login-btn {
+    margin-top: var(--spacing-lg);
   }
 
   .loading-spinner {
     width: 16px;
     height: 16px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top: 2px solid white;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -262,17 +281,36 @@
 
   .auth-footer {
     text-align: center;
-    color: #6c757d;
-    font-size: 0.9rem;
+    margin-top: auto;
+  }
+
+  .auth-footer p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
   }
 
   .auth-footer a {
-    color: #007bff;
+    color: var(--accent-color);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
   }
 
   .auth-footer a:hover {
     text-decoration: underline;
+  }
+
+  @media (max-width: 480px) {
+    .auth-container {
+      max-width: 100%;
+      min-width: auto;
+      padding: 0 var(--spacing-md);
+    }
+
+    .auth-card {
+      width: 100%;
+      height: auto;
+      min-height: 600px;
+    }
   }
 </style> 

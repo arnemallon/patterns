@@ -111,39 +111,27 @@
 </script>
 
 <div class="alerts" in:fly={{ y: 20, duration: 500 }}>
-  <div class="page-header">
-    <h1>Alerts</h1>
-    <p>Monitor Bitcoin addresses for specific activities and receive notifications.</p>
-  </div>
-
   <!-- Alerts Overview -->
   <div class="alerts-overview">
     <div class="overview-card">
-      <div class="overview-icon">🔔</div>
       <div class="overview-content">
         <h3>{alerts.length}</h3>
         <p>Total Alerts</p>
       </div>
     </div>
-    
     <div class="overview-card">
-      <div class="overview-icon">✅</div>
       <div class="overview-content">
         <h3>{alerts.filter(a => a.status === 'active').length}</h3>
         <p>Active Alerts</p>
       </div>
     </div>
-    
     <div class="overview-card">
-      <div class="overview-icon">📊</div>
       <div class="overview-content">
         <h3>{alerts.reduce((sum, a) => sum + a.trigger_count, 0)}</h3>
         <p>Total Triggers</p>
       </div>
     </div>
-    
     <div class="overview-card">
-      <div class="overview-icon">⏸️</div>
       <div class="overview-content">
         <h3>{alerts.filter(a => a.status === 'paused').length}</h3>
         <p>Paused Alerts</p>
@@ -156,7 +144,6 @@
     <div class="section-header">
       <h2>Alert Management</h2>
       <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
-        <span class="btn-icon">➕</span>
         Create Alert
       </button>
     </div>
@@ -167,15 +154,13 @@
           <div class="alert-card" in:fade={{ delay: alert.id * 50 }}>
             <div class="alert-header">
               <div class="alert-type">
-                <span class="type-icon">{getAlertTypeIcon(alert.type)}</span>
                 <span class="type-label">{getAlertTypeLabel(alert.type)}</span>
               </div>
               <div class="alert-status">
                 <span 
-                  class="status-badge"
-                  style="background-color: {getStatusColor(alert.status)}"
+                  class="status-badge {alert.status}"
                 >
-                  {alert.status}
+                  {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
                 </span>
               </div>
             </div>
@@ -241,36 +226,6 @@
         </button>
       </div>
     {/if}
-  </div>
-
-  <!-- Alert Types Info -->
-  <div class="alert-types-info">
-    <h3>Alert Types</h3>
-    <div class="types-grid">
-      <div class="type-info">
-        <div class="type-icon">🔄</div>
-        <h4>New Transaction</h4>
-        <p>Triggered when a new transaction is detected on the monitored address.</p>
-      </div>
-      
-      <div class="type-info">
-        <div class="type-icon">⚠️</div>
-        <h4>High Risk Transaction</h4>
-        <p>Triggered when a transaction with high risk score is detected.</p>
-      </div>
-      
-      <div class="type-info">
-        <div class="type-icon">💰</div>
-        <h4>Large Transaction</h4>
-        <p>Triggered when a transaction exceeds a specified amount threshold.</p>
-      </div>
-      
-      <div class="type-info">
-        <div class="type-icon">🚨</div>
-        <h4>Suspicious Pattern</h4>
-        <p>Triggered when suspicious transaction patterns are detected.</p>
-      </div>
-    </div>
   </div>
 
   <!-- Create Alert Modal -->
@@ -340,122 +295,110 @@
     margin: 0 auto;
   }
 
-  .page-header {
-    margin-bottom: 2rem;
-  }
-
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #2c3e50;
-  }
-
-  .page-header p {
-    margin: 0;
-    color: #6c757d;
-    font-size: 1.1rem;
-  }
-
-  /* Alerts Overview */
   .alerts-overview {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    display: flex;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
   }
 
   .overview-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
     display: flex;
     align-items: center;
-    gap: 1rem;
-  }
-
-  .overview-icon {
-    font-size: 2rem;
+    justify-content: center;
+    min-width: 0;
+    box-shadow: none;
   }
 
   .overview-content h3 {
-    margin: 0 0 0.25rem 0;
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: #2c3e50;
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--text-primary);
   }
 
   .overview-content p {
     margin: 0;
-    color: #6c757d;
-    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-base);
   }
 
-  /* Alerts Section */
   .alerts-section {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
-    margin-bottom: 2rem;
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
   }
 
   .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: var(--spacing-lg);
   }
 
   .section-header h2 {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2c3e50;
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
   }
 
   .alerts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--spacing-lg);
   }
 
   .alert-card {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 1.5rem;
-    border: 1px solid #e9ecef;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    box-shadow: none;
   }
 
   .alert-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
   }
 
-  .alert-type {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .type-icon {
-    font-size: 1.2rem;
-  }
-
-  .type-label {
-    font-weight: 600;
-    color: #2c3e50;
+  .alert-type .type-label {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
   }
 
   .status-badge {
-    color: white;
     padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    background: var(--background-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+  }
+
+  .status-badge.active {
+    background: var(--accent-color);
+    color: white;
+    border: 1px solid var(--accent-color);
+  }
+
+  .status-badge.paused {
+    background: var(--background-tertiary);
+    color: var(--text-tertiary);
+    border: 1px solid var(--border-color);
   }
 
   .alert-content {
@@ -463,44 +406,42 @@
   }
 
   .address-info {
-    margin-bottom: 1rem;
+    display: flex;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
   }
 
   .address-label {
-    font-weight: 500;
-    color: #2c3e50;
-    margin-right: 0.5rem;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-tertiary);
   }
 
   .address-value {
     font-family: monospace;
-    background-color: #e9ecef;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.85rem;
+    color: var(--text-primary);
   }
 
   .alert-details {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-sm);
   }
 
   .detail-item {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: var(--spacing-xs);
   }
 
   .detail-label {
-    font-weight: 500;
-    color: #2c3e50;
-    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-xs);
   }
 
   .detail-value {
-    color: #6c757d;
-    font-size: 0.85rem;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
   }
 
   .alert-actions {
@@ -508,7 +449,6 @@
     gap: 0.5rem;
   }
 
-  /* Empty State */
   .empty-state {
     text-align: center;
     padding: 3rem;
@@ -532,54 +472,6 @@
     font-size: 1rem;
   }
 
-  /* Alert Types Info */
-  .alert-types-info {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    padding: 2rem;
-  }
-
-  .alert-types-info h3 {
-    margin: 0 0 1.5rem 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #2c3e50;
-  }
-
-  .types-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .type-info {
-    text-align: center;
-    padding: 1.5rem;
-    border-radius: 8px;
-    background-color: #f8f9fa;
-  }
-
-  .type-info .type-icon {
-    font-size: 2rem;
-    margin-bottom: 1rem;
-  }
-
-  .type-info h4 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #2c3e50;
-  }
-
-  .type-info p {
-    margin: 0;
-    color: #6c757d;
-    font-size: 0.9rem;
-    line-height: 1.5;
-  }
-
-  /* Buttons */
   .btn {
     display: inline-flex;
     align-items: center;
@@ -623,7 +515,6 @@
     margin-right: 0.5rem;
   }
 
-  /* Modal Styles */
   .modal-overlay {
     position: fixed;
     top: 0;
@@ -693,7 +584,6 @@
     gap: 1rem;
   }
 
-  /* Form Styles */
   .form-group {
     margin-bottom: 1rem;
   }
@@ -728,7 +618,6 @@
     color: #007bff;
   }
 
-  /* Responsive Design */
   @media (max-width: 768px) {
     .section-header {
       flex-direction: column;
@@ -742,10 +631,6 @@
 
     .alert-actions {
       flex-direction: column;
-    }
-
-    .types-grid {
-      grid-template-columns: 1fr;
     }
   }
 </style> 

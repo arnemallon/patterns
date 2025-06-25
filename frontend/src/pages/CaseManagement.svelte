@@ -133,16 +133,11 @@
 </script>
 
 <div class="case-management" in:fly={{ y: 20, duration: 500 }}>
-  <div class="page-header">
-    <h1>Case Management</h1>
-    <p>Organize your investigations into cases with addresses, notes, and analysis results.</p>
-  </div>
-
   <div class="case-layout">
     <!-- Cases List -->
     <div class="cases-sidebar">
       <div class="sidebar-header">
-        <h2>Cases</h2>
+        <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
         <button class="btn btn-primary" on:click={() => showCreateCaseModal = true}>
           New Case
         </button>
@@ -342,27 +337,6 @@
     font-weight: var(--font-weight-normal);
   }
 
-  .page-header {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .page-header h1 {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: var(--font-size-4xl);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
-    line-height: var(--line-height-tight);
-  }
-
-  .page-header p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: var(--font-size-lg);
-    line-height: var(--line-height-normal);
-  }
-
-  /* Case Layout */
   .case-layout {
     display: grid;
     grid-template-columns: 350px 1fr;
@@ -386,11 +360,10 @@
     align-items: center;
   }
 
-  .sidebar-header h2 {
-    margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
+  .sidebar-header img {
+    height: 2.5rem;
+    width: auto;
+    margin-right: var(--spacing-md);
   }
 
   .cases-list {
@@ -803,5 +776,11 @@
     .addresses-grid {
       grid-template-columns: 1fr;
     }
+  }
+
+  .sidebar-logo {
+    height: 2.5rem;
+    width: auto;
+    margin-right: var(--spacing-md);
   }
 </style> 

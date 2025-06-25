@@ -112,7 +112,7 @@
                 <th>Date</th>
                 <th>Address</th>
                 <th>Category</th>
-                <th class="confidence-col">Confidence</th>
+                <th>Confidence</th>
             </tr>
         </thead>
         <tbody>
@@ -138,8 +138,8 @@
                     >
                         <td class="date-cell">{formatDate(item.created_at)}</td>
                         <td><code title={item.address}>{formatAddress(item.address)}</code></td>
-                        <td>{getCategoryDescription(item.classification)}</td>
-                        <td class="confidence-col">{(item.confidence * 100).toFixed(1)}%</td>
+                        <td class="category-col">{getCategoryDescription(item.classification)}</td>
+                        <td>{(item.confidence * 100).toFixed(1)}%</td>
                     </tr>
                 {/each}
             {/if}
@@ -162,37 +162,43 @@
 
 <style>
   .history-container {
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    background: var(--background-primary);
+    color: var(--text-primary);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-normal);
   }
 
   .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1.5rem;
-      border-bottom: 1px solid #e9ecef;
+      padding: var(--spacing-lg);
+      border-bottom: 1px solid var(--border-color);
+      background: var(--background-primary);
   }
 
   h2 {
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
     margin: 0;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
   }
 
   .loading-indicator {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    color: #6c757d;
-    font-size: 0.9rem;
+    gap: var(--spacing-xs);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
   }
 
   .loading-spinner {
     width: 12px;
     height: 12px;
     border: 2px solid transparent;
-    border-top: 2px solid currentColor;
+    border-top: 2px solid var(--accent-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
   }
@@ -204,64 +210,52 @@
 
   .table-container {
       width: 100%;
-      overflow-x: auto;
+      background: var(--background-primary);
   }
 
   table {
       width: 100%;
       border-collapse: collapse;
+      font-size: var(--font-size-sm);
+      background: var(--background-primary);
   }
 
   th, td {
-      padding: 1rem 1.5rem;
+      padding: var(--spacing-md);
+      border-bottom: 1px solid var(--border-color);
       text-align: left;
-      border-bottom: 1px solid #f1f3f5;
   }
   
-  tbody tr:last-child td {
-      border-bottom: none;
-  }
-
-  thead th {
-      color: #6c757d;
-      font-size: 0.8rem;
-      font-weight: 500;
+  th {
+      color: var(--text-secondary);
+      font-weight: var(--font-weight-medium);
+      background: var(--background-secondary);
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      background-color: #f8f9fa;
+      letter-spacing: 0.03em;
   }
   
-  td {
-      color: #495057;
-      font-size: 0.95rem;
+  tr:nth-child(even) td {
+      background: var(--background-secondary);
   }
   
-  td code {
-    background-color: #f1f3f5;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-family: monospace;
-    transition: background-color 0.2s;
-  }
-  
-  .history-item:hover td code {
-    background-color: #e9ecef;
+  tr:nth-child(odd) td {
+      background: var(--background-primary);
   }
   
   .confidence-col {
-      text-align: right;
+      color: var(--accent-color);
+      font-weight: var(--font-weight-medium);
   }
   
   .date-cell {
       white-space: nowrap;
-      color: #6c757d;
+      color: var(--text-secondary);
   }
 
   .status-cell {
+      color: var(--text-tertiary);
       text-align: center;
-      color: #6c757d;
-      padding: 2.5rem;
-      font-style: italic;
+      padding: var(--spacing-lg);
   }
 
   .error-display {
@@ -283,12 +277,10 @@
   }
 
   .skeleton-cell {
-    height: 1rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
+    height: 1.2em;
+    background: var(--background-tertiary);
+    border-radius: var(--border-radius-sm);
     animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    width: 100%;
   }
 
   @keyframes shimmer {
@@ -316,39 +308,41 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e9ecef;
-    gap: 1rem;
-    user-select: none;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    background: var(--background-primary);
+    border-top: 1px solid var(--border-color);
   }
 
   .pagination-controls button {
-    background-color: #fff;
-    color: #007bff;
-    border: 1px solid #dee2e6;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    border-radius: 6px;
+    background: var(--background-secondary);
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .pagination-controls button:hover:not(:disabled) {
-    background-color: #f8f9fa;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background 0.2s, color 0.2s;
   }
 
   .pagination-controls button:disabled {
-    color: #6c757d;
+    background: var(--border-color);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    opacity: 0.7;
+    border-color: var(--border-color);
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
   }
   
   .pagination-controls span {
-    color: #6c757d;
-    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .category-col {
+      color: var(--accent-color);
+      font-weight: var(--font-weight-medium);
   }
 </style> 
