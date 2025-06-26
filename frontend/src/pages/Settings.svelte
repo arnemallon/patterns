@@ -51,6 +51,11 @@
       console.log('Deleting account');
     }
   }
+
+  function handleLogout() {
+    localStorage.removeItem('currentUser');
+    window.location.href = '/login';
+  }
 </script>
 
 <div class="settings" in:fly={{ y: 20, duration: 500 }}>
@@ -205,6 +210,10 @@
       </div>
     </div>
   </div>
+
+  <button class="btn btn-secondary logout-btn" on:click={handleLogout} style="width:100%;margin-top:2rem;">
+    Logout
+  </button>
 
   <!-- Change Password Modal -->
   {#if showChangePasswordModal}

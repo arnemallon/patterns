@@ -1,17 +1,70 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { apiService } from '../services/api.js';
+  import CategoryChart from '../components/CategoryChart.svelte';
+  import LineChart from '../components/LineChart.svelte';
 
   let recentActivity = [];
   let activeAlerts = [];
+  let categoryDistribution = {};
   let stats = {
     totalAddresses: 0,
     suspiciousAddresses: 0,
     activeCases: 0,
     pendingAlerts: 0
-  };
+  };  
+  let addressCountOverTime = {};
+  let lastAddresses = [];
+  let alerts = [];
 
-  onMount(() => {
+  onMount(async () => {
+    try {
+      // Fetch actual statistics from the backend
+      const statistics = await apiService.getStatistics();
+      stats = {
+        totalAddresses: statistics.total_addresses || 0,
+        suspiciousAddresses: statistics.suspicious_addresses || 0,
+        activeCases: 0, // This would need a separate endpoint for cases
+        pendingAlerts: 0 // This would need a separate endpoint for alerts
+      };
+
+      // Fetch category distribution for the chart
+      const distribution = await apiService.getCategoryDistribution();
+      console.log('Fetched category distribution from API:', distribution);
+      // Sort and keep top 5 categories
+      const sorted = Object.entries(distribution)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5);
+      categoryDistribution = Object.fromEntries(sorted);
+      console.log('categoryDistribution state (top 5):', categoryDistribution);
+
+      // Fetch address count over time for the line chart
+      addressCountOverTime = await apiService.getAddressCountOverTime();
+
+      // Fetch last 6 analyzed addresses
+      const history = await apiService.getHistory(6, 0);
+      lastAddresses = history.classifications || [];
+
+      // Fetch alerts (replace with real API call if available)
+      // Example: alerts = await apiService.getAlerts();
+      alerts = [
+        {
+          id: 1,
+          type: 'High Risk Transaction',
+          description: 'Large transaction detected from known mixer address'
+        },
+        {
+          id: 2,
+          type: 'New Transaction',
+          description: 'New transaction detected on monitored address'
+        }
+      ];
+    } catch (error) {
+      console.error('Failed to fetch statistics:', error);
+      // Keep default values if API call fails
+    }
+
     // Mock data - in real implementation, this would come from API
     recentActivity = [
       {
@@ -55,13 +108,6 @@
         description: 'New transaction detected on monitored address'
       }
     ];
-
-    stats = {
-      totalAddresses: 1247,
-      suspiciousAddresses: 89,
-      activeCases: 12,
-      pendingAlerts: 5
-    };
   });
 
   function formatTimeAgo(date) {
@@ -84,134 +130,161 @@
       default: return 'var(--text-tertiary)';
     }
   }
+
+  function getCategoryDescription(prediction) {
+    const categories = [
+      'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
+      'P2P Financial Infrastructure Service', 'P2P Financial Service', 'Gambling',
+      'Government Criminal Blacklist', 'Money Laundering', 'Ponzi Scheme',
+      'Mining Pool', 'Tumbler', 'Individual Wallet'
+    ];
+    const index = Math.round(prediction);
+    const clampedIndex = Math.max(0, Math.min(12, index));
+    return categories[clampedIndex];
+  }
 </script>
 
 <div class="dashboard" in:fly={{ y: 20, duration: 500 }}>
-  <!-- Statistics Cards -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-content">
-        <h3>{stats.totalAddresses.toLocaleString()}</h3>
-        <p>Total Addresses Analyzed</p>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-content">
-        <h3>{stats.suspiciousAddresses}</h3>
-        <p>Suspicious Addresses</p>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-content">
-        <h3>{stats.activeCases}</h3>
-        <p>Active Cases</p>
-      </div>
-    </div>
-    
-    <div class="stat-card">
-      <div class="stat-content">
-        <h3>{stats.pendingAlerts}</h3>
-        <p>Pending Alerts</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main Content Grid -->
-  <div class="dashboard-grid">
-    <!-- Recent Activity -->
-    <div class="dashboard-card">
-      <div class="card-header">
-        <h2>Recent Activity</h2>
-        <a href="/history" class="view-all">View All</a>
-      </div>
-      
-      <div class="activity-list">
-        {#each recentActivity as activity}
-          <div class="activity-item" in:fade={{ delay: activity.id * 100 }}>
-            <div class="activity-content">
-              <div class="activity-title">
-                {#if activity.type === 'classification'}
-                  Address classified as {activity.result}
-                {:else if activity.type === 'case_created'}
-                  Case "{activity.caseName}" created
-                {:else if activity.type === 'alert_triggered'}
-                  Alert triggered for {activity.address.substring(0, 12)}...
-                {/if}
-              </div>
-              <div class="activity-meta">
-                {#if activity.address}
-                  <span class="address">{activity.address.substring(0, 12)}...</span>
-                {/if}
-                {#if activity.riskScore}
-                  <span class="risk-score">Risk: {(activity.riskScore * 100).toFixed(0)}%</span>
-                {/if}
-                <span class="timestamp">{formatTimeAgo(activity.timestamp)}</span>
-              </div>
-            </div>
+  <div class="dashboard-columns">
+    <div class="left-col">
+      <!-- Statistics Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-content">
+            <span class="stat-number">{stats.totalAddresses.toLocaleString()}</span>
+            <span class="stat-desc">Total Addresses<br/>Analyzed</span>
           </div>
-        {/each}
-      </div>
-    </div>
-
-    <!-- Active Alerts -->
-    <div class="dashboard-card">
-      <div class="card-header">
-        <h2>Active Alerts</h2>
-        <a href="/alerts" class="view-all">View All</a>
-      </div>
-      
-      <div class="alerts-list">
-        {#each activeAlerts as alert}
-          <div class="alert-item" in:fade={{ delay: alert.id * 100 }}>
-            <div class="alert-severity" style="background-color: {getSeverityColor(alert.severity)}"></div>
-            <div class="alert-content">
-              <div class="alert-title">{alert.type.replace('_', ' ').toUpperCase()}</div>
-              <div class="alert-description">{alert.description}</div>
-              <div class="alert-meta">
-                <span class="address">{alert.address.substring(0, 12)}...</span>
-                <span class="timestamp">{formatTimeAgo(alert.timestamp)}</span>
-              </div>
-            </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-content">
+            <span class="stat-number">{stats.suspiciousAddresses}</span>
+            <span class="stat-desc">Suspicious<br/>Addresses</span>
           </div>
-        {/each}
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-content">
+            <span class="stat-number">{stats.pendingAlerts}</span>
+            <span class="stat-desc">Pending Alerts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content Grid -->
+      <!-- Category Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <h2>Category Distribution</h2>
+        </div>
+        <div class="category-distribution">
+          {#if Object.keys(categoryDistribution).length > 0}
+            <CategoryChart data={categoryDistribution} />
+          {:else}
+            <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Addresses Analyzed Over Time -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <h2>Addresses Analyzed Over Time</h2>
+        </div>
+        <div class="line-distribution">
+          {#if Object.keys(addressCountOverTime).length > 0}
+            <LineChart data={addressCountOverTime} />
+          {:else}
+            <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+          {/if}
+        </div>
       </div>
     </div>
-  </div>
+    <div class="right-col">
+      <!-- Alerts Widget -->
+      <div class="dashboard-card alerts-widget">
+        <div class="card-header">
+          <h2>Alerts Triggered ({alerts.length})</h2>
+        </div>
+        <div class="alerts-widget-content">
+          {#if alerts.length > 0}
+            <ul class="alerts-list-widget">
+              {#each alerts as alert}
+                <li><span class="alert-type">{alert.type}</span> <span class="alert-desc">- {alert.description}</span></li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="no-alerts-text">No alerts have been triggered yet.</p>
+          {/if}
+        </div>
+      </div>
 
-  <!-- Quick Actions -->
-  <div class="quick-actions">
-    <h2>Quick Actions</h2>
-    <div class="actions-grid">
-      <a href="/analysis" class="action-card">
-        <h3>Analyze Address</h3>
-        <p>Classify a single Bitcoin address</p>
-      </a>
-      
-      <a href="/batch" class="action-card">
-        <h3>Batch Analysis</h3>
-        <p>Analyze multiple addresses at once</p>
-      </a>
-      
-      <a href="/cases" class="action-card">
-        <h3>Create Case</h3>
-        <p>Start a new investigation case</p>
-      </a>
-      
-      <a href="/alerts" class="action-card">
-        <h3>View Alerts</h3>
-        <p>Check all active alerts</p>
-      </a>
+      <!-- Recent Addresses -->
+      <div class="dashboard-card recent-history-card">
+        <div class="card-header">
+          <h2>Recent Addresses</h2>
+        </div>
+        <table class="recent-addresses-table">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Category</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each lastAddresses as item, i}
+              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+                <td><code>{item.address.slice(0, 10)}...</code></td>
+                <td class="category-col">{getCategoryDescription(item.classification)}</td>
+              </tr>
+            {/each}
+            {#if lastAddresses.length === 0}
+              <tr><td colspan="2" style="text-align:center; color: var(--text-secondary);">No data</td></tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
+  /* Make the dashboard fit the viewport and prevent scrolling */
+  html, body {
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
   .dashboard {
     max-width: 1200px;
     margin: 0 auto;
+    min-height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
+  .dashboard-columns {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .left-col, .right-col {
+    gap: 0.7rem;
+    padding-bottom: 0;
+  }
+  /* Make category distribution more compact */
+  .category-distribution {
+    padding-bottom: 0.2rem;
+  }
+  .dashboard-card {
+    padding: var(--spacing-xs) var(--spacing-md);
+  }
+  .card-header h2 {
+    font-size: 1.1rem;
+    margin-bottom: 0.2rem;
+  }
+  /* Reduce font size for y-axis labels in CategoryChart.svelte if needed */
 
   .dashboard-header {
     margin-bottom: var(--spacing-xl);
@@ -231,42 +304,65 @@
   /* Statistics Grid */
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing-lg);
-    margin-bottom: var(--spacing-xl);
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: 0;
+    margin-left: 0;
+    margin-right: 0;
+    justify-items: start;
+    width: 100%;
   }
 
   .stat-card {
     background: var(--background-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
+    padding: var(--spacing-sm) var(--spacing-xl);
     transition: border-color var(--transition-fast);
+    min-width: 180px;
+    max-width: none;
+    width: 100%;
+    min-height: 80px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
   }
 
   .stat-card:hover {
     border-color: var(--border-color-light);
   }
 
-  .stat-content h3 {
-    font-size: var(--font-size-3xl);
+  .stat-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+  }
+  .stat-number {
+    font-size: var(--font-size-2xl);
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-
-  .stat-content p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-sm);
     margin: 0;
+    line-height: 1;
+  }
+  .stat-desc {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    margin: 0;
+    white-space: nowrap;
   }
 
-  /* Dashboard Grid */
   .dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
+  }
+
+  @media (max-width: 1200px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr 1fr;
+    }
   }
 
   @media (max-width: 768px) {
@@ -275,11 +371,37 @@
     }
   }
 
+  .dashboard-columns {
+    display: flex;
+    flex-direction: row;
+    gap: var(--spacing-xl);
+    align-items: flex-start;
+  }
+  .left-col {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  .right-col {
+    flex: 0 0 400px;
+    max-width: 450px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+  }
   .dashboard-card {
     background: var(--background-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
+    padding: var(--spacing-md);
+    transition: border-color var(--transition-fast);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .card-header {
@@ -302,132 +424,99 @@
     font-weight: var(--font-weight-medium);
   }
 
-  /* Activity List */
-  .activity-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
+  /* Addresses Analyzed Over Time */
+  .line-distribution {
+    padding-bottom: 0.5rem;
   }
 
-  .activity-item {
-    padding: var(--spacing-md);
-    border: 1px solid var(--border-color-light);
-    border-radius: var(--border-radius-md);
-    background: var(--background-secondary);
+  /* Recent Addresses Table */
+  .recent-addresses-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
   }
-
-  .activity-title {
-    font-weight: var(--font-weight-medium);
+  .recent-addresses-table th, .recent-addresses-table td {
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+  }
+  .recent-addresses-table th {
+    color: var(--text-secondary);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .recent-addresses-table td {
     color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
-    font-size: var(--font-size-sm);
+    border-bottom: 1px solid var(--border-color-light);
+  }
+  .recent-addresses-table tr:last-child td {
+    border-bottom: none;
   }
 
-  .activity-meta {
-    display: flex;
-    gap: var(--spacing-md);
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-  }
-
-  .address {
-    font-family: monospace;
-  }
-
-  .risk-score {
+  .recent-addresses-table .category-col {
     color: var(--accent-color);
     font-weight: var(--font-weight-medium);
   }
-
-  /* Alerts List */
-  .alerts-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .alert-item {
-    display: flex;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border: 1px solid var(--border-color-light);
-    border-radius: var(--border-radius-md);
+  .recent-addresses-table .even-row {
     background: var(--background-secondary);
   }
-
-  .alert-severity {
-    width: 4px;
-    border-radius: var(--border-radius-sm);
-    flex-shrink: 0;
-  }
-
-  .alert-content {
-    flex: 1;
-  }
-
-  .alert-title {
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-    margin-bottom: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-  }
-
-  .alert-description {
-    color: var(--text-secondary);
-    margin-bottom: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-  }
-
-  .alert-meta {
-    display: flex;
-    gap: var(--spacing-md);
-    font-size: var(--font-size-xs);
-    color: var(--text-tertiary);
-  }
-
-  /* Quick Actions */
-  .quick-actions {
-    margin-top: var(--spacing-xl);
-  }
-
-  .quick-actions h2 {
-    margin-bottom: var(--spacing-lg);
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
-    color: var(--text-primary);
-  }
-
-  .actions-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: var(--spacing-lg);
-  }
-
-  .action-card {
-    display: block;
+  .recent-addresses-table .odd-row {
     background: var(--background-primary);
-    border: 1px solid var(--border-color);
+  }
+
+  .recent-history-card {
+    padding-top: var(--spacing-xl);
+    padding-right: 0;
+    padding-bottom: 0;
+    padding-left: 0;
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
-    text-decoration: none;
-    transition: all var(--transition-fast);
+    overflow: hidden;
+    min-height: 140px;
   }
-
-  .action-card:hover {
-    border-color: var(--accent-color);
-    background: var(--background-secondary);
+  .recent-history-card .card-header {
+    padding-left: var(--spacing-xl);
+    padding-right: var(--spacing-xl);
+    justify-content: flex-start;
   }
-
-  .action-card h3 {
-    color: var(--text-primary);
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
+  .recent-history-card .card-header h2 {
+    text-align: left;
+    margin-left: 0;
   }
-
-  .action-card p {
-    color: var(--text-secondary);
+  .recent-history-card .recent-addresses-table {
     margin: 0;
-    font-size: var(--font-size-sm);
+    padding: 0;
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+    overflow: hidden;
+  }
+  .recent-addresses-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .alerts-widget-content {
+    padding: 0.5rem 0 0.5rem 0;
+  }
+  .alerts-list-widget {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .alerts-list-widget li {
+    padding: 0.3rem 0;
+    color: var(--text-primary);
+    font-size: 0.97rem;
+  }
+  .alert-type {
+    color: var(--accent-color);
+    font-weight: 500;
+  }
+  .alert-desc {
+    color: var(--text-secondary);
+  }
+  .no-alerts-text {
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .alerts-widget {
+    min-height: 240px;
   }
 </style> 

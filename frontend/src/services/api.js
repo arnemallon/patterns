@@ -112,5 +112,29 @@ export const apiService = {
    */
   async getTransactionGraph(address) {
     return this.get(`/graph/${address}`);
+  },
+
+  /**
+   * Get dashboard statistics
+   * @returns {Promise<Object>} Statistics data including total addresses, suspicious addresses, etc.
+   */
+  async getStatistics() {
+    return this.get('/stats');
+  },
+
+  /**
+   * Get category distribution for bar chart
+   * @returns {Promise<Object>} Category distribution data
+   */
+  async getCategoryDistribution() {
+    return this.get('/category-distribution');
+  },
+
+  /**
+   * Get address count over time (last 30 days)
+   * @returns {Promise<Object>} Date-to-count mapping
+   */
+  async getAddressCountOverTime() {
+    return this.get('/address-count-over-time');
   }
 }; 

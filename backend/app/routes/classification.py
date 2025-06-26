@@ -9,6 +9,7 @@ import requests
 import json
 import hashlib
 from datetime import datetime, timedelta
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,70 @@ def health_check():
             'ml_service': 'available' if ml_service.model else 'fallback'
         }
     })
+
+@api.route('/stats', methods=['GET'])
+def get_statistics():
+    """
+    Get dashboard statistics
+    Returns counts for addresses analyzed, suspicious addresses, etc.
+    """
+    try:
+        # Get total addresses analyzed
+        total_addresses = Classification.query.count()
+        
+        # Get suspicious addresses (classification = 1)
+        suspicious_addresses = Classification.query.filter_by(classification=1).count()
+        
+        # Get recent activity count (last 24 hours)
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        recent_activity = Classification.query.filter(Classification.created_at >= yesterday).count()
+        
+        return jsonify({
+            'total_addresses': total_addresses,
+            'suspicious_addresses': suspicious_addresses,
+            'recent_activity': recent_activity,
+            'legitimate_addresses': total_addresses - suspicious_addresses
+        })
+        
+    except Exception as e:
+        logger.error(f"Error fetching statistics: {str(e)}")
+        return jsonify({'error': 'Failed to fetch statistics'}), 500
+
+@api.route('/category-distribution', methods=['GET'])
+def get_category_distribution():
+    """
+    Get category distribution for bar chart
+    Returns count of addresses by classification category label
+    """
+    try:
+        # Category mapping (should match frontend)
+        categories = [
+            'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
+            'P2P Financial Infrastructure Service', 'P2P Financial Service', 'Gambling',
+            'Government Criminal Blacklist', 'Money Laundering', 'Ponzi Scheme',
+            'Mining Pool', 'Tumbler', 'Individual Wallet'
+        ]
+        # Get count by classification category
+        category_counts = db.session.query(
+            Classification.classification,
+            func.count(Classification.id).label('count')
+        ).group_by(Classification.classification).all()
+        
+        # Convert to dictionary format with label mapping
+        distribution = {}
+        for category_num, count in category_counts:
+            index = int(round(category_num))
+            if 0 <= index < len(categories):
+                category_name = categories[index]
+            else:
+                category_name = f'Unknown ({category_num})'
+            distribution[category_name] = count
+        
+        return jsonify(distribution)
+        
+    except Exception as e:
+        logger.error(f"Error fetching category distribution: {str(e)}")
+        return jsonify({'error': 'Failed to fetch category distribution'}), 500
 
 @api.route('/graph/<address>', methods=['GET'])
 def get_transaction_graph(address):
@@ -295,4 +360,38 @@ def get_transaction_graph(address):
         return jsonify({'error': 'Network error', 'details': f'Failed to connect to BlockCypher API: {str(e)}'}), 500
     except Exception as e:
         logger.error(f"Error getting transaction graph for {address}: {str(e)}")
-        return jsonify({'error': 'Failed to generate transaction graph', 'details': str(e)}), 500 
+        return jsonify({'error': 'Failed to generate transaction graph', 'details': str(e)}), 500
+
+@api.route('/address-count-over-time', methods=['GET'])
+def address_count_over_time():
+    """
+    Returns the number of addresses analyzed per day for the last 30 days.
+    """
+    try:
+        from sqlalchemy import func
+        from datetime import datetime, timedelta
+        days = 30
+        today = datetime.utcnow().date()
+        start_date = today - timedelta(days=days-1)
+
+        # Query: count per day
+        results = db.session.query(
+            func.date(Classification.created_at).label('date'),
+            func.count(Classification.id)
+        ).filter(
+            Classification.created_at >= start_date
+        ).group_by(
+            func.date(Classification.created_at)
+        ).order_by(
+            func.date(Classification.created_at)
+        ).all()
+
+        # Build a dict with all days in range, fill 0 if missing
+        date_counts = {str((start_date + timedelta(days=i))): 0 for i in range(days)}
+        for date, count in results:
+            date_counts[str(date)] = count
+
+        return jsonify(date_counts)
+    except Exception as e:
+        logger.error(f"Error fetching address count over time: {str(e)}")
+        return jsonify({'error': 'Failed to fetch address count over time'}), 500 

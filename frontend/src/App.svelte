@@ -106,12 +106,7 @@
             </div>
             
             <div class="sidebar-footer">
-              <div class="user-info">
-                <span class="user-name">{currentUser.username}</span>
-              </div>
-              <button class="btn btn-secondary logout-btn" on:click={handleLogout}>
-                Logout
-              </button>
+              <!-- Removed user-info and user-name from here -->
             </div>
           </nav>
 
@@ -226,21 +221,9 @@
 
   .sidebar-footer {
     padding: var(--spacing-lg);
-    border-top: 1px solid var(--border-color);
+    /* border-top: 1px solid var(--border-color); */
     background: var(--background-primary);
     margin-top: auto;
-  }
-
-  .user-info {
-    display: flex;
-    align-items: center;
-    margin-bottom: var(--spacing-md);
-  }
-
-  .user-name {
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
-    font-size: var(--font-size-sm);
   }
 
   .logout-btn {

@@ -549,4 +549,20 @@
       margin: var(--spacing-md);
     }
   }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    border: 4px solid #111;
+    border-top: 4px solid #000;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+    background: #111;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 </style> 

@@ -332,17 +332,17 @@
     border-radius: 8px;
     margin-top: 2rem;
     overflow: hidden;
-    background: var(--background-secondary);
+    background: #23272f;
   }
 
   .skeleton-header {
     padding: 1rem 1.5rem;
-    background-color: var(--background-secondary);
+    background-color: #23272f;
     border-bottom: 1px solid var(--border-color);
   }
 
   .skeleton-title, .skeleton-label, .skeleton-value, .skeleton-feature-label, .skeleton-feature-value {
-    background: linear-gradient(90deg, var(--background-tertiary) 25%, var(--background-secondary) 50%, var(--background-tertiary) 75%);
+    background: linear-gradient(90deg, #23272f 25%, #2d323c 50%, #23272f 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 4px;
@@ -369,7 +369,7 @@
 
   .skeleton-feature-item {
     padding: 0.75rem;
-    background-color: #f8f9fa;
+    background-color: #23272f;
     border-radius: 6px;
     display: flex;
     flex-direction: column;
