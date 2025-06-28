@@ -43,7 +43,7 @@
       addressCountOverTime = await apiService.getAddressCountOverTime();
 
       // Fetch last 6 analyzed addresses
-      const history = await apiService.getHistory(6, 0);
+      const history = await apiService.getHistory(6, 0, {});
       lastAddresses = history.classifications || [];
 
       // Fetch alerts (replace with real API call if available)

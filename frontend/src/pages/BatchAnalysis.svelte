@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { apiService } from '../services/api.js';
 
   let addressList = '';
   let isAnalyzing = false;
@@ -8,12 +9,14 @@
   let showResults = false;
   let selectedFile = null;
   let dragOver = false;
+  let error = null;
 
-  function handleAnalyze() {
+  async function handleAnalyze() {
     if (!addressList.trim()) return;
     
     isAnalyzing = true;
     showResults = false;
+    error = null;
     
     // Parse addresses from input
     const addresses = addressList
@@ -21,20 +24,25 @@
       .map(addr => addr.trim())
       .filter(addr => addr.length > 0);
     
-    // Simulate batch analysis
-    setTimeout(() => {
-      results = addresses.map((address, index) => ({
+    try {
+      const response = await apiService.batchClassifyAddresses(addresses);
+      results = response.results.map((result, index) => ({
         id: index + 1,
-        address: address,
-        classification: Math.random() > 0.5 ? 'suspicious' : 'normal',
-        risk_score: Math.random(),
-        status: 'completed',
-        timestamp: new Date()
+        address: result.address,
+        classification: result.classification,
+        confidence: result.confidence,
+        status: result.status,
+        error: result.error,
+        cached: result.cached || false
       }));
       
-      isAnalyzing = false;
       showResults = true;
-    }, 2000);
+    } catch (err) {
+      error = err.message || 'Batch analysis failed';
+      console.error('Batch analysis error:', err);
+    } finally {
+      isAnalyzing = false;
+    }
   }
 
   function handleFileUpload(event) {
@@ -74,8 +82,8 @@
 
   function exportResults() {
     const csvContent = [
-      'Address,Classification,Risk Score,Status,Timestamp',
-      ...results.map(r => `${r.address},${r.classification},${r.risk_score.toFixed(3)},${r.status},${r.timestamp.toISOString()}`)
+      'Address,Classification,Confidence,Status',
+      ...results.map(r => `${r.address},${getCategoryDescription(r.classification)},${(r.confidence * 100).toFixed(1)}%,${r.status}`)
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -91,22 +99,23 @@
     results = [];
     showResults = false;
     addressList = '';
+    error = null;
   }
 
-  function getRiskLevelColor(riskScore) {
-    if (riskScore >= 0.7) return '#dc3545';
-    if (riskScore >= 0.4) return '#ffc107';
-    return '#28a745';
+  function getCategoryDescription(prediction) {
+    const categories = [
+      'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
+      'P2P Financial Infrastructure Service', 'P2P Financial Service', 'Gambling',
+      'Government Criminal Blacklist', 'Money Laundering', 'Ponzi Scheme',
+      'Mining Pool', 'Tumbler', 'Individual Wallet'
+    ];
+    const index = Math.round(prediction);
+    const clampedIndex = Math.max(0, Math.min(12, index));
+    return categories[clampedIndex];
   }
 
-  function getRiskLevelText(riskScore) {
-    if (riskScore >= 0.7) return 'High';
-    if (riskScore >= 0.4) return 'Medium';
-    return 'Low';
-  }
-
-  function getClassificationIcon(classification) {
-    return classification === 'suspicious' ? '⚠️' : '✅';
+  function formatAddress(address) {
+    return `${address.substring(0, 12)}...${address.substring(address.length - 8)}`;
   }
 </script>
 
@@ -173,6 +182,13 @@
     </div>
   </div>
 
+  <!-- Error Display -->
+  {#if error}
+    <div class="error-display" in:fly={{ y: 20, duration: 300 }}>
+      <strong>Error:</strong> {error}
+    </div>
+  {/if}
+
   <!-- Results Section -->
   {#if showResults}
     <div class="results-section" in:fade={{ duration: 300 }}>
@@ -183,38 +199,49 @@
             <strong>{results.length}</strong> addresses analyzed
           </span>
           <span class="summary-item">
-            <strong>{results.filter(r => r.classification === 'suspicious').length}</strong> suspicious
+            <strong>{results.filter(r => r.status === 'completed').length}</strong> successful
           </span>
           <span class="summary-item">
-            <strong>{results.filter(r => r.classification === 'normal').length}</strong> normal
+            <strong>{results.filter(r => r.status === 'error').length}</strong> errors
           </span>
         </div>
         <button class="export-btn" on:click={exportResults}>Export CSV</button>
       </div>
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Address</th>
-            <th>Classification</th>
-            <th>Risk</th>
-            <th>Status</th>
-            <th>Timestamp</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each results as r}
+      
+      <div class="table-container">
+        <table class="results-table">
+          <thead>
             <tr>
-              <td>{r.id}</td>
-              <td class="address-cell">{r.address}</td>
-              <td class="classification-badge {r.classification}">{r.classification.charAt(0).toUpperCase() + r.classification.slice(1)}</td>
-              <td class="risk-level-badge risk-{getRiskLevelText(r.risk_score).toLowerCase()}">{getRiskLevelText(r.risk_score)}</td>
-              <td class="status-badge {r.status}">{r.status.charAt(0).toUpperCase() + r.status.slice(1)}</td>
-              <td class="timestamp">{r.timestamp.toLocaleString()}</td>
+              <th>#</th>
+              <th>Address</th>
+              <th>Category</th>
+              <th>Confidence</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each results as r, i}
+              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+                <td>{r.id}</td>
+                <td><code title={r.address}>{formatAddress(r.address)}</code></td>
+                <td class="category-col">
+                  {#if r.status === 'completed'}
+                    {getCategoryDescription(r.classification)}
+                  {:else}
+                    <span class="error-text">Error</span>
+                  {/if}
+                </td>
+                <td class="confidence-col">
+                  {#if r.status === 'completed'}
+                    {(r.confidence * 100).toFixed(1)}%
+                  {:else}
+                    -
+                  {/if}
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     </div>
   {/if}
 </div>
@@ -418,25 +445,40 @@
   .results-table tr:nth-child(odd) td {
     background: var(--background-primary);
   }
-  .results-table td.risk {
+  
+  .table-container {
+    width: 100%;
+    background: var(--background-primary);
+  }
+  
+  .category-col {
+    color: var(--accent-color);
     font-weight: var(--font-weight-medium);
   }
-  .results-table td.risk-high {
+  
+  .confidence-col {
+    color: var(--accent-color);
+    font-weight: var(--font-weight-medium);
+  }
+  
+  .error-text {
     color: var(--error-color);
-  }
-  .results-table td.risk-medium {
-    color: var(--warning-color);
-  }
-  .results-table td.risk-low {
-    color: var(--success-color);
-  }
-  .results-table td.status {
     font-weight: var(--font-weight-medium);
-    color: var(--text-secondary);
   }
-  .results-table td.timestamp {
-    color: var(--text-tertiary);
-    font-size: var(--font-size-xs);
+  
+  .error-display {
+    padding: 1rem 1.5rem;
+    background-color: #f8d7da;
+    color: #721c24;
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+    animation: shake 0.5s ease-in-out;
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
   }
   .export-btn {
     background: var(--background-secondary);

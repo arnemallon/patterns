@@ -1,0 +1,81 @@
+{
+  "timestamp": "2025-06-28T18:05:04.388063",
+  "current_features": [
+    "PAIa13",
+    "S2-3",
+    "CI2a32-2",
+    "CI2a32-4",
+    "S2-2",
+    "PAIa11-1",
+    "PAIa11-2",
+    "S2-1"
+  ],
+  "feature_descriptions": {
+    "PAIa13": "Ratio of total received to total sent (or total received if sent=0)",
+    "S2-3": "Total number of unique addresses (inputs + outputs)",
+    "CI2a32-2": "Maximum ratio of input amount to total transaction amount",
+    "CI2a32-4": "Maximum ratio of output amount to total transaction amount",
+    "S2-2": "Number of unique output addresses",
+    "PAIa11-1": "Total amount received (in BTC)",
+    "PAIa11-2": "Total amount sent (in BTC)",
+    "S2-1": "Number of unique input addresses"
+  },
+  "feature_categories": {
+    "transaction_volume": [
+      "PAIa11-1",
+      "PAIa11-2",
+      "PAIa13"
+    ],
+    "network_topology": [
+      "S2-1",
+      "S2-2",
+      "S2-3"
+    ],
+    "behavioral_patterns": [
+      "CI2a32-2",
+      "CI2a32-4"
+    ]
+  },
+  "additional_features": [
+    "CI3a32-2",
+    "PDIa1-R3",
+    "PDIa1-3",
+    "PDIa13-R"
+  ],
+  "recommendations": [
+    "1. The current 8-feature set is well-chosen based on statistical analysis",
+    "2. Features cover key aspects: transaction volume, network topology, and behavioral patterns",
+    "3. Consider adding CI3a32-2 and PDIa1-R3 if model performance needs improvement",
+    "4. Monitor feature importance over time as Bitcoin usage patterns evolve",
+    "5. Consider feature engineering to create interaction terms between related features"
+  ],
+  "potential_correlations": [
+    [
+      "PAIa11-1 (total received) and PAIa11-2 (total sent)",
+      "May be correlated for active addresses"
+    ],
+    [
+      "S2-1 (input addresses) and S2-2 (output addresses)",
+      "Related to transaction complexity"
+    ],
+    [
+      "S2-3 (total unique addresses) and S2-1/S2-2",
+      "S2-3 is union of S2-1 and S2-2"
+    ],
+    [
+      "CI2a32-2 and CI2a32-4",
+      "Both relate to transaction amount ratios"
+    ],
+    [
+      "PAIa13 (received/sent ratio) and PAIa11-1/PAIa11-2",
+      "Directly related to volume features"
+    ]
+  ],
+  "summary": {
+    "total_current_features": 8,
+    "transaction_volume_features": 3,
+    "network_features": 3,
+    "behavioral_features": 2,
+    "additional_features_count": 4
+  }
+}

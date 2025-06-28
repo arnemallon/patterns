@@ -83,13 +83,32 @@ export const apiService = {
   },
 
   /**
+   * Classify multiple Bitcoin addresses in batch
+   * @param {Array<string>} addresses - Array of Bitcoin addresses to classify
+   * @returns {Promise<Object>} Batch classification results
+   */
+  async batchClassifyAddresses(addresses) {
+    return this.post('/batch-classify', { addresses });
+  },
+
+  /**
    * Get classification history
    * @param {number} limit - Number of records to return
    * @param {number} offset - Number of records to skip
+   * @param {Object} filters - Optional filters
+   * @param {string} filters.search - Search term for addresses
+   * @param {string} filters.classification - Filter by classification ('0' or '1')
+   * @param {string} filters.dateRange - Filter by date range ('today', 'week', 'month', 'year')
    * @returns {Promise<Object>} History data
    */
-  async getHistory(limit = 10, offset = 0) {
-    return this.get(`/history?limit=${limit}&offset=${offset}`);
+  async getHistory(limit = 10, offset = 0, filters = {}) {
+    const params = { limit, offset };
+    
+    if (filters.search) params.search = filters.search;
+    if (filters.classification) params.classification = filters.classification;
+    if (filters.dateRange) params.date_range = filters.dateRange;
+    
+    return this.get('/history', params);
   },
 
   /**

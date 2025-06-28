@@ -3,6 +3,8 @@
   import { fly, fade } from 'svelte/transition';
 
   let alerts = [];
+  let triggeredAlerts = [];
+  let activeAlerts = [];
   let showCreateAlertModal = false;
   let newAlertAddress = '';
   let newAlertType = 'new_transaction';
@@ -33,8 +35,34 @@
         created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
         last_triggered: null,
         trigger_count: 0
+      },
+      {
+        id: 3,
+        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+        type: 'large_transaction',
+        threshold: 0.5,
+        email: 'analyst@example.com',
+        status: 'active',
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1),
+        last_triggered: new Date(Date.now() - 1000 * 60 * 60 * 2),
+        trigger_count: 1
+      },
+      {
+        id: 4,
+        address: '1FvzCLoTPGANNjWoUo6jUGuAG3wg1w4YjR',
+        type: 'suspicious_pattern',
+        threshold: 0.8,
+        email: 'investigator@example.com',
+        status: 'paused',
+        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
+        last_triggered: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
+        trigger_count: 5
       }
     ];
+
+    // Separate alerts into triggered and active
+    triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
+    activeAlerts = alerts.filter(alert => alert.status === 'active');
   });
 
   function handleCreateAlert() {
@@ -52,6 +80,9 @@
       };
       
       alerts = [...alerts, newAlert];
+      activeAlerts = alerts.filter(alert => alert.status === 'active');
+      triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
+      
       showCreateAlertModal = false;
       newAlertAddress = '';
       newAlertType = 'new_transaction';
@@ -66,11 +97,17 @@
         ? { ...alert, status: alert.status === 'active' ? 'paused' : 'active' }
         : alert
     );
+    
+    // Update filtered arrays
+    activeAlerts = alerts.filter(alert => alert.status === 'active');
+    triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
   }
 
   function handleDeleteAlert(alertId) {
     if (confirm('Are you sure you want to delete this alert?')) {
       alerts = alerts.filter(alert => alert.id !== alertId);
+      activeAlerts = alerts.filter(alert => alert.status === 'active');
+      triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
     }
   }
 
@@ -108,6 +145,10 @@
       minute: '2-digit'
     }).format(date);
   }
+
+  function formatAddress(address) {
+    return `${address.substring(0, 12)}...${address.substring(address.length - 8)}`;
+  }
 </script>
 
 <div class="alerts" in:fly={{ y: 20, duration: 500 }}>
@@ -121,14 +162,14 @@
     </div>
     <div class="overview-card">
       <div class="overview-content">
-        <h3>{alerts.filter(a => a.status === 'active').length}</h3>
+        <h3>{activeAlerts.length}</h3>
         <p>Active Alerts</p>
       </div>
     </div>
     <div class="overview-card">
       <div class="overview-content">
-        <h3>{alerts.reduce((sum, a) => sum + a.trigger_count, 0)}</h3>
-        <p>Total Triggers</p>
+        <h3>{triggeredAlerts.length}</h3>
+        <p>Triggered Alerts</p>
       </div>
     </div>
     <div class="overview-card">
@@ -139,87 +180,136 @@
     </div>
   </div>
 
-  <!-- Alerts Management -->
+  <!-- Triggered Alerts Table -->
   <div class="alerts-section">
     <div class="section-header">
-      <h2>Alert Management</h2>
+      <h2>Triggered Alerts ({triggeredAlerts.length})</h2>
       <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
         Create Alert
       </button>
     </div>
 
-    {#if alerts.length > 0}
-      <div class="alerts-grid">
-        {#each alerts as alert}
-          <div class="alert-card" in:fade={{ delay: alert.id * 50 }}>
-            <div class="alert-header">
-              <div class="alert-type">
-                <span class="type-label">{getAlertTypeLabel(alert.type)}</span>
-              </div>
-              <div class="alert-status">
-                <span 
-                  class="status-badge {alert.status}"
-                >
-                  {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
-                </span>
-              </div>
-            </div>
-            
-            <div class="alert-content">
-              <div class="address-info">
-                <span class="address-label">Address:</span>
-                <span class="address-value">{alert.address.substring(0, 12)}...</span>
-              </div>
-              
-              <div class="alert-details">
-                <div class="detail-item">
-                  <span class="detail-label">Threshold:</span>
-                  <span class="detail-value">{(alert.threshold * 100).toFixed(0)}%</span>
-                </div>
-                
-                <div class="detail-item">
-                  <span class="detail-label">Email:</span>
-                  <span class="detail-value">{alert.email}</span>
-                </div>
-                
-                <div class="detail-item">
-                  <span class="detail-label">Created:</span>
-                  <span class="detail-value">{formatDate(alert.created_at)}</span>
-                </div>
-                
-                <div class="detail-item">
-                  <span class="detail-label">Last Triggered:</span>
-                  <span class="detail-value">{formatDate(alert.last_triggered)}</span>
-                </div>
-                
-                <div class="detail-item">
-                  <span class="detail-label">Trigger Count:</span>
-                  <span class="detail-value">{alert.trigger_count}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="alert-actions">
-              <button 
-                class="btn btn-secondary"
-                on:click={() => handleToggleAlert(alert.id)}
-              >
-                {alert.status === 'active' ? '⏸️ Pause' : '▶️ Resume'}
-              </button>
-              <button 
-                class="btn btn-danger"
-                on:click={() => handleDeleteAlert(alert.id)}
-              >
-                🗑️ Delete
-              </button>
-            </div>
-          </div>
-        {/each}
+    {#if triggeredAlerts.length > 0}
+      <div class="table-container">
+        <table class="alerts-table">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Alert Type</th>
+              <th>Threshold</th>
+              <th>Last Triggered</th>
+              <th>Trigger Count</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each triggeredAlerts as alert, i}
+              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+                <td><code title={alert.address}>{formatAddress(alert.address)}</code></td>
+                <td>
+                  <span class="alert-type-badge">
+                    {getAlertTypeIcon(alert.type)} {getAlertTypeLabel(alert.type)}
+                  </span>
+                </td>
+                <td>{(alert.threshold * 100).toFixed(0)}%</td>
+                <td>{formatDate(alert.last_triggered)}</td>
+                <td>
+                  <span class="trigger-count">{alert.trigger_count}</span>
+                </td>
+                <td>
+                  <span class="status-badge {alert.status}">
+                    {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
+                  </span>
+                </td>
+                <td class="actions-cell">
+                  <button 
+                    class="action-btn"
+                    on:click={() => handleToggleAlert(alert.id)}
+                    title={alert.status === 'active' ? 'Pause Alert' : 'Resume Alert'}
+                  >
+                    {alert.status === 'active' ? '⏸️' : '▶️'}
+                  </button>
+                  <button 
+                    class="action-btn delete-btn"
+                    on:click={() => handleDeleteAlert(alert.id)}
+                    title="Delete Alert"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {:else}
       <div class="empty-state">
         <div class="empty-icon">🔔</div>
-        <h4>No alerts configured</h4>
+        <h4>No triggered alerts</h4>
+        <p>Alerts that have been triggered will appear here.</p>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Active Alerts Table -->
+  <div class="alerts-section">
+    <div class="section-header">
+      <h2>Active Alerts ({activeAlerts.length})</h2>
+    </div>
+
+    {#if activeAlerts.length > 0}
+      <div class="table-container">
+        <table class="alerts-table">
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Alert Type</th>
+              <th>Threshold</th>
+              <th>Email</th>
+              <th>Created</th>
+              <th>Last Triggered</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each activeAlerts as alert, i}
+              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+                <td><code title={alert.address}>{formatAddress(alert.address)}</code></td>
+                <td>
+                  <span class="alert-type-badge">
+                    {getAlertTypeIcon(alert.type)} {getAlertTypeLabel(alert.type)}
+                  </span>
+                </td>
+                <td>{(alert.threshold * 100).toFixed(0)}%</td>
+                <td>{alert.email}</td>
+                <td>{formatDate(alert.created_at)}</td>
+                <td>{formatDate(alert.last_triggered)}</td>
+                <td class="actions-cell">
+                  <button 
+                    class="action-btn"
+                    on:click={() => handleToggleAlert(alert.id)}
+                    title="Pause Alert"
+                  >
+                    ⏸️
+                  </button>
+                  <button 
+                    class="action-btn delete-btn"
+                    on:click={() => handleDeleteAlert(alert.id)}
+                    title="Delete Alert"
+                  >
+                    🗑️
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {:else}
+      <div class="empty-state">
+        <div class="empty-icon">🔔</div>
+        <h4>No active alerts</h4>
         <p>Create your first alert to start monitoring Bitcoin addresses for suspicious activity.</p>
         <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
           Create First Alert
