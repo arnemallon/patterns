@@ -4,7 +4,9 @@ import json
 import logging
 from typing import Dict, List
 import os
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
 from sklearn.preprocessing import StandardScaler
+import csv
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +18,16 @@ class MLService:
         self.model = None
         self.scaler = None
         self.feature_names = [
-            'PAIa13', 'S2-3', 'CI2a32-2', 'CI2a32-4', 'S2-2', 
-            'PAIa11-1', 'PAIa11-2', 'S2-1'
+            'S5', 'S6', 'S1-1', 'PTIa41-2', 'CI2a32-2', 'PTIa21', 
+            'PAIa13', 'CI3a12-3'
         ]
-        
-        # Load model and scaler if paths provided
+        self.with_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/with_structural_features')
+        self.without_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/without_structural_features')
+        self.structural_address_csv = os.path.join(PROJECT_ROOT, 'backend', 'results', 'concatenated_features_with_account.csv')
+        self.structural_addresses = None  # Will be loaded as a set
+        self.models = {}
+        self.scalers = {}
+        # Load default model and scaler if paths provided
         if model_path and os.path.exists(model_path):
             self.load_model(model_path)
         if scaler_path and os.path.exists(scaler_path):
@@ -62,11 +69,75 @@ class MLService:
             logger.error(f"Error loading scaler: {e}")
             raise
     
-    def predict(self, features: Dict) -> Dict:
+    def _load_structural_addresses(self):
+        if self.structural_addresses is not None:
+            return
+        self.structural_addresses = set()
+        try:
+            with open(self.structural_address_csv, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    self.structural_addresses.add(row['account'].strip())
+            print(f"Loaded {len(self.structural_addresses)} addresses from structural CSV")
+        except Exception as e:
+            # If file is missing or unreadable, treat as empty
+            self.structural_addresses = set()
+            print(f"Failed to load structural addresses: {e}")
+
+    def _get_model_and_scaler(self, use_structural: bool):
+        key = 'with' if use_structural else 'without'
+        if key not in self.models or key not in self.scalers:
+            model_dir = self.with_structural_dir if use_structural else self.without_structural_dir
+            model_path = os.path.join(model_dir, 'bitcoin_classifier.keras')
+            scaler_path = os.path.join(model_dir, 'scaler.json')
+            logger.debug(f"Checking model path: {model_path}")
+            logger.debug(f"Checking scaler path: {scaler_path}")
+            model = None
+            scaler = None
+            if os.path.exists(model_path):
+                try:
+                    logger.info(f"Loading model from {model_path}")
+                    model = tf.keras.models.load_model(model_path, compile=False)
+                    model.compile(
+                        optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                        loss='sparse_categorical_crossentropy',
+                        metrics=['accuracy']
+                    )
+                    logger.info(f"Model loaded successfully from {model_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load model from {model_path}: {e}")
+                    model = None
+            else:
+                logger.warning(f"Model file does not exist: {model_path}")
+            if os.path.exists(scaler_path):
+                try:
+                    logger.info(f"Loading scaler from {scaler_path}")
+                    with open(scaler_path, 'r') as f:
+                        scaler_data = json.load(f)
+                    scaler = StandardScaler()
+                    scaler.mean_ = np.array(scaler_data['mean'])
+                    scaler.scale_ = np.array(scaler_data['scale'])
+                    logger.info(f"Scaler loaded successfully from {scaler_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load scaler from {scaler_path}: {e}")
+                    scaler = None
+            else:
+                logger.warning(f"Scaler file does not exist: {scaler_path}")
+            self.models[key] = model
+            self.scalers[key] = scaler
+        return self.models[key], self.scalers[key]
+
+    def predict(self, features: Dict, address: str = None) -> Dict:
         """
-        Make prediction using the loaded model
-        Returns the actual numeric output (0-12) with proper data types
+        Make prediction using the correct model based on address presence in the structural CSV
         """
+        use_structural = False
+        if address:
+            self._load_structural_addresses()
+            if address.strip() in self.structural_addresses:
+                use_structural = True
+        print(f"Address {address} is {'in' if use_structural else 'not in'} the structural CSV")
+        model, scaler = self._get_model_and_scaler(use_structural)
         try:
             # Convert features dict to array in correct order with proper data types
             feature_array = np.array([[
@@ -74,35 +145,32 @@ class MLService:
             ]], dtype=np.float64)
             
             # Scale features if scaler is available
-            if self.scaler:
-                feature_array = self.scaler.transform(feature_array)
+            if scaler:
+                feature_array = scaler.transform(feature_array)
             
             # Make prediction
-            if self.model:
-                prediction = self.model.predict(feature_array, verbose=0)
-                # Apply softmax to get probabilities
-                probabilities = tf.nn.softmax(prediction[0])
-                # Get the predicted class index (0-12)
-                predicted_class = int(np.argmax(probabilities))
-                # Get the confidence (probability of the predicted class) with high precision
-                confidence = float(np.max(probabilities))
-                
-                logger.info(f"Model raw output: {prediction[0]}")
-                logger.info(f"Model probabilities: {probabilities.numpy()}")
-                logger.info(f"Predicted class: {predicted_class}")
-                logger.info(f"Confidence: {confidence}")
-                
-                return {
-                    'prediction': predicted_class,
-                    'confidence': round(confidence, 8),
-                    'raw_output': [round(float(x), 8) for x in prediction[0].tolist()],
-                    'probabilities': [round(float(x), 8) for x in probabilities.numpy().tolist()],
-                    'features_used': features
-                }
-            else:
-                # Fallback: simple rule-based classification
-                return self._fallback_classification(features)
-                
+            if not model:
+                raise RuntimeError("Required model for this address type is missing.")
+            prediction = model.predict(feature_array, verbose=0)
+            # Apply softmax to get probabilities
+            probabilities = tf.nn.softmax(prediction[0])
+            # Get the predicted class index (0-12)
+            predicted_class = int(np.argmax(probabilities))
+            # Get the confidence (probability of the predicted class) with high precision
+            confidence = float(np.max(probabilities))
+            
+            logger.info(f"Model raw output: {prediction[0]}")
+            logger.info(f"Model probabilities: {probabilities.numpy()}")
+            logger.info(f"Predicted class: {predicted_class}")
+            logger.info(f"Confidence: {confidence}")
+            
+            return {
+                'prediction': predicted_class,
+                'confidence': round(confidence, 8),
+                'raw_output': [round(float(x), 8) for x in prediction[0].tolist()],
+                'probabilities': [round(float(x), 8) for x in probabilities.numpy().tolist()],
+                'features_used': features
+            }
         except Exception as e:
             logger.error(f"Error making prediction: {e}")
             raise
@@ -110,38 +178,53 @@ class MLService:
     def _fallback_classification(self, features: Dict) -> Dict:
         """
         Simple fallback classification when model is not loaded
-        Based on basic heuristics using the 8 available features with proper data types
+        Based on basic heuristics using the 8 new features with proper data types
         """
-        # Simple heuristics based on transaction volume and frequency
-        total_received = float(features.get('PAIa11-1', 0.0))
-        total_sent = float(features.get('PAIa11-2', 0.0))
-        n_transactions = int(features.get('S2-1', 0))
+        # Simple heuristics based on graph properties and transaction patterns
+        avg_shortest_path = float(features.get('S5', 0.0))
+        diameter = float(features.get('S6', 0.0))
+        avg_in_degree = float(features.get('S1-1', 0.0))
+        min_time_interval = float(features.get('PTIa41-2', 0.0))
+        max_input_ratio = float(features.get('CI2a32-2', 0.0))
+        active_days_ratio = float(features.get('PTIa21', 0.0))
+        input_output_ratio = float(features.get('PAIa13', 0.0))
+        min_daily_connections = int(features.get('CI3a12-3', 0))
         
-        # Simple scoring system
+        # Simple scoring system based on new features
         score = 0
         
-        # High transaction volume might indicate suspicious activity
-        if total_received > 1000.0 or total_sent > 1000.0:
-            score += 2
-        
-        # High transaction frequency
-        if n_transactions > 100:
+        # High graph complexity might indicate suspicious activity
+        if avg_shortest_path > 2.0:
+            score += 1
+        if diameter > 5:
             score += 1
         
-        # Large difference between received and sent
-        if abs(total_received - total_sent) > 500.0:
+        # High connectivity patterns
+        if avg_in_degree > 3.0:
+            score += 1
+        
+        # Very rapid transaction patterns
+        if min_time_interval < 3600:  # Less than 1 hour
+            score += 2
+        
+        # High input/output ratios
+        if input_output_ratio > 10.0 or input_output_ratio < 0.1:
+            score += 1
+        
+        # High transaction velocity
+        if max_input_ratio > 1.0:
             score += 1
         
         # Determine classification based on score
-        if score >= 3:
+        if score >= 4:
             prediction = 1  # Suspicious
-            confidence = 0.7
-        elif score >= 1:
+            confidence = 0.8
+        elif score >= 2:
             prediction = 1  # Suspicious
-            confidence = 0.5
+            confidence = 0.6
         else:
             prediction = 0  # Normal
-            confidence = 0.8
+            confidence = 0.7
         
         return {
             'prediction': int(prediction),

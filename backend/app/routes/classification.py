@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, make_response
 from app.routes import api
 from app.services import FeatureService, MLService
 from app.models import Classification
@@ -68,7 +68,7 @@ def classify_address():
         
         # Make prediction
         logger.info(f"Making prediction for {address}")
-        prediction_result = ml_service.predict(features)
+        prediction_result = ml_service.predict(features, address=address)
         
         # Store result in database
         classification_record = Classification(
@@ -395,3 +395,58 @@ def address_count_over_time():
     except Exception as e:
         logger.error(f"Error fetching address count over time: {str(e)}")
         return jsonify({'error': 'Failed to fetch address count over time'}), 500 
+
+@api.route('/batch-classify', methods=['POST', 'OPTIONS'])
+def batch_classify():
+    if request.method == 'OPTIONS':
+        # CORS preflight
+        response = make_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        return response, 200
+    try:
+        data = request.get_json()
+        addresses = data.get('addresses', [])
+        logger.info(f"Batch classify request received for addresses: {addresses}")
+        if not isinstance(addresses, list) or not addresses:
+            logger.warning("No addresses provided in batch classify request.")
+            return jsonify({'error': 'No addresses provided', 'results': []}), 400
+        results = []
+        for address in addresses:
+            logger.info(f"Processing address: {address}")
+            try:
+                logger.debug(f"Extracting features for {address}")
+                features = feature_service.extract_features(address)
+                logger.debug(f"Features for {address}: {features}")
+                logger.debug(f"Predicting classification for {address}")
+                prediction_result = ml_service.predict(features, address=address)
+                logger.debug(f"Prediction result for {address}: {prediction_result}")
+                results.append({
+                    'address': address,
+                    'classification': int(prediction_result['prediction']),
+                    'confidence': round(float(prediction_result['confidence']), 8),
+                    'status': 'success',
+                    'error': None,
+                    'cached': False
+                })
+            except Exception as e:
+                logger.error(f"Error classifying address {address}: {str(e)}", exc_info=True)
+                results.append({
+                    'address': address,
+                    'classification': None,
+                    'confidence': None,
+                    'status': 'error',
+                    'error': str(e),
+                    'cached': False
+                })
+            logger.info(f"Result for {address}: {results[-1]}")
+        logger.info(f"Batch classify results: {results}")
+        response = jsonify({'results': results})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Batch classification failed: {str(e)}", exc_info=True)
+        response = jsonify({'error': 'Batch classification failed', 'details': str(e), 'results': []})
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response, 500 
