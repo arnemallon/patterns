@@ -62,9 +62,17 @@ def classify_address():
                 'cached': True
             })
         
-        # Extract features
+        # Fetch and cache data for this address (single API call)
+        logger.info(f"Fetching and caching data for {address}")
+        cached_data = feature_service.fetch_and_cache_data(address)
+        
+        # Extract features using cached data
         logger.info(f"Extracting features for {address}")
-        features = feature_service.extract_features(address)
+        features = feature_service._calculate_features(
+            address, 
+            cached_data['address_data'], 
+            cached_data['transactions']
+        )
         
         # Make prediction
         logger.info(f"Making prediction for {address}")
@@ -217,32 +225,19 @@ def get_transaction_graph(address):
             logger.info(f"Returning cached graph data for {address}")
             return jsonify(graph_cache[address])
         
-        # Get transaction data from BlockCypher API
-        # BlockCypher API endpoint for address details
-        url = f"https://api.blockcypher.com/v1/btc/main/addrs/{address}/full"
+        # Try to get cached data from feature service first
+        cached_data = feature_service.get_cached_data(address)
         
-        logger.info(f"Fetching data from BlockCypher: {url}")
-        response = requests.get(url, timeout=30)
-        
-        logger.info(f"BlockCypher response status: {response.status_code}")
-        
-        if response.status_code == 429:
-            logger.error(f"BlockCypher API rate limited: {response.status_code} - {response.text}")
-            return jsonify({
-                'error': 'API rate limit reached', 
-                'details': 'BlockCypher API rate limit exceeded. Please try again in a few minutes.',
-                'nodes': [],
-                'edges': [],
-                'address': address,
-                'transaction_count': 0
-            }), 429
-        
-        if response.status_code != 200:
-            logger.error(f"BlockCypher API error: {response.status_code} - {response.text}")
-            return jsonify({'error': 'Failed to fetch transaction data', 'details': f'BlockCypher API returned {response.status_code}'}), 500
-        
-        data = response.json()
-        logger.info(f"BlockCypher data received, transactions: {len(data.get('txs', []))}")
+        if cached_data:
+            logger.info(f"Using cached data from feature service for {address}")
+            transactions = cached_data['transactions']
+            address_data = cached_data['address_data']
+        else:
+            # If no cached data, fetch and cache it (this will be used for both features and graph)
+            logger.info(f"No cached data found, fetching for {address}")
+            cached_data = feature_service.fetch_and_cache_data(address)
+            transactions = cached_data['transactions']
+            address_data = cached_data['address_data']
         
         # Build graph data
         nodes = []
@@ -260,7 +255,6 @@ def get_transaction_graph(address):
         })
         
         # Process transactions
-        transactions = data.get('txs', [])
         if not transactions:
             logger.info(f"No transactions found for address: {address}")
             result = {
@@ -352,12 +346,6 @@ def get_transaction_graph(address):
         
         return jsonify(result)
         
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout fetching data from BlockCypher for {address}")
-        return jsonify({'error': 'Request timeout', 'details': 'BlockCypher API request timed out'}), 500
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request error fetching data from BlockCypher for {address}: {str(e)}")
-        return jsonify({'error': 'Network error', 'details': f'Failed to connect to BlockCypher API: {str(e)}'}), 500
     except Exception as e:
         logger.error(f"Error getting transaction graph for {address}: {str(e)}")
         return jsonify({'error': 'Failed to generate transaction graph', 'details': str(e)}), 500

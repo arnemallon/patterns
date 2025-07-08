@@ -13,8 +13,15 @@
   const dispatch = createEventDispatcher();
 
   // Watch for changes to the address prop and automatically submit
-  $: if (address) {
+  $: if (address && address.trim()) {
+    console.log('Address changed in AddressClassifier:', address);
+    // Add a small delay to prevent rapid successive calls
+    setTimeout(() => {
+      if (address && address.trim()) {
+        console.log('Submitting address for classification:', address);
     handleSubmit();
+      }
+    }, 100);
   }
 
   const featureLabels = {
@@ -88,6 +95,9 @@
 
   $: categoryInfo = result ? getCategoryInfo(result.classification) : null;
   $: confidenceColor = result ? (result.confidence > 0.75 ? '#28a745' : result.confidence > 0.5 ? '#ffc107' : '#dc3545') : '#e9ecef';
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  $: dashOffset = result ? circumference * (1 - result.confidence) : circumference;
 </script>
 
 <div class="classifier-container">
@@ -157,13 +167,31 @@
         </div>
         <div class="confidence-gauge">
           <svg class="gauge-svg" viewBox="0 0 36 36">
-            <path class="gauge-base" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
-            <path 
+            <!-- Base circle -->
+            <circle
+              class="gauge-base"
+              cx="18"
+              cy="18"
+              r={radius}
+              fill="none"
+              stroke="#555"
+              stroke-width="3.8"
+            />
+            <!-- Progress arc -->
+            <circle
               class="gauge-arc" 
+              cx="18"
+              cy="18"
+              r={radius}
+              fill="none"
               stroke="{confidenceColor}"
-              stroke-dasharray="{result.confidence * 100}, 100"
-              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-            ></path>
+              stroke-width="3.8"
+              stroke-dasharray="{circumference}"
+              stroke-dashoffset="{dashOffset}"
+              stroke-linecap="round"
+              style="transition: stroke-dashoffset 0.5s;"
+              transform="rotate(-90 18 18)"
+            />
           </svg>
           <div class="gauge-text">
             {(result.confidence * 100).toFixed(0)}<span>%</span>

@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { useLocation } from 'svelte-routing';
   import AddressClassifier from '../components/AddressClassifier.svelte';
   import TransactionGraph from '../components/TransactionGraph.svelte';
 
@@ -14,6 +15,8 @@
   let selectedCase = null;
   let caseNote = '';
 
+  const location = useLocation();
+
   onMount(() => {
     // Mock data for available cases
     availableCases = [
@@ -21,7 +24,30 @@
       { id: 2, name: 'Mixer Analysis', description: 'Tracking mixer service transactions' },
       { id: 3, name: 'Dark Web Monitoring', description: 'Monitoring known dark web addresses' }
     ];
+
+    // Check for address parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const addressParam = urlParams.get('address');
+    if (addressParam) {
+      console.log('Found address in URL:', addressParam);
+      addressToClassify = addressParam;
+    }
   });
+
+  // Watch for URL changes to update address when navigating
+  $: {
+    if (location.pathname === '/analysis') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const addressParam = urlParams.get('address');
+      if (addressParam && addressParam !== addressToClassify) {
+        console.log('URL changed, new address:', addressParam);
+        addressToClassify = addressParam;
+        // Reset results when address changes
+        classificationResult = null;
+        currentAddress = '';
+      }
+    }
+  }
 
   function handleClassificationComplete(event) {
     classificationResult = event.detail;

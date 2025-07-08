@@ -10,4 +10,6 @@ requests==2.31.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 networkx==3.1
+# Graph-tool for research feature calculations (optional - will fallback if not available)
+# graph-tool==2.44
 # SQLite is included with Python, no additional package needed 

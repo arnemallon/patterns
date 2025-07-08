@@ -45,6 +45,41 @@ A web application that classifies Bitcoin addresses for illegal activity detecti
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:5000
 
+## 🔬 Research-Based Feature Calculation
+
+The system now supports **exact research-based feature calculations** using the original research code from `moduleG.py`. This ensures feature values match your research exactly.
+
+### Two Calculation Modes:
+
+1. **Research Mode (Recommended)**: Uses graph-tool and exact research functions
+   - Requires graph-tool installation
+   - Uses the original Bitcoin graph and reverse map
+   - Calculates features exactly as in your research
+
+2. **API Mode (Fallback)**: Uses BlockCypher API
+   - No additional dependencies
+   - Approximates features using transaction data
+   - Works when research files are not available
+
+### Installing Research Mode:
+
+```bash
+# Install graph-tool for exact calculations
+cd backend
+./install_graph_tool.sh
+
+# Or manually install graph-tool:
+conda install -c conda-forge graph-tool
+```
+
+### Research Files Required:
+
+For exact calculations, place these files in `backend/scripts/`:
+- `BitcoinGraph.gt` - The Bitcoin transaction graph
+- `revmap.pkl` - Address to vertex mapping
+
+The system will automatically detect these files and use research mode when available.
+
 ## 🏗️ Project Structure
 
 ```
@@ -53,9 +88,13 @@ BlockChainAnalysis/
 │   ├── app/
 │   │   ├── routes/            # API endpoints
 │   │   ├── services/          # Business logic
-│   │   │   ├── feature_service.py    # Feature extraction
+│   │   │   ├── feature_service.py    # Feature extraction (research + API)
 │   │   │   └── ml_service.py         # ML predictions
 │   │   └── models/            # Database models
+│   ├── scripts/               # Research code
+│   │   ├── moduleG.py         # Original research functions
+│   │   ├── BitcoinGraph.gt    # Bitcoin transaction graph
+│   │   └── revmap.pkl         # Address mapping
 │   ├── requirements.txt       # Python dependencies
 │   └── run.py                 # Application entry point
 ├── frontend/                  # Svelte web application
@@ -78,12 +117,14 @@ BlockChainAnalysis/
 - **Frontend**: Svelte + Vite
 - **Database**: PostgreSQL
 - **ML**: TensorFlow (with fallback classification)
-- **API**: BlockCypher for Bitcoin data
+- **Research**: graph-tool + moduleG.py (exact calculations)
+- **API**: BlockCypher for Bitcoin data (fallback)
 
 ## 📊 Features
 
 - **Address Classification**: Analyze Bitcoin addresses for suspicious activity
-- **Feature Extraction**: Extract 12 key features from blockchain data
+- **Research-Based Features**: Extract 8 key features using exact research calculations
+- **Dual Mode**: Research mode (exact) + API mode (approximate)
 - **Caching**: Store results to avoid re-processing
 - **History**: View classification history
 - **Real-time Analysis**: Live blockchain data via BlockCypher API
