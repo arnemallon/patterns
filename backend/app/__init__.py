@@ -17,7 +17,7 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
     
     # Use PostgreSQL if available, otherwise fallback to SQLite
-    database_url = os.getenv('DATABASE_URL')
+    database_url = (os.getenv('DATABASE_URL') or '').strip()
     if database_url:
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     else:
@@ -27,8 +27,7 @@ def create_app():
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Add a permissive CORS policy to the app
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     db.init_app(app)
     
     # Register blueprints
