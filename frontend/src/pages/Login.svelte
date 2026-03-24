@@ -1,6 +1,7 @@
 <script>
   import { fly, fade } from 'svelte/transition';
   import { navigate } from 'svelte-routing';
+  import { usersApi, setAuthToken } from '../services/api.js';
 
   export let handleLogin;
 
@@ -9,7 +10,7 @@
   let isLoading = false;
   let error = '';
 
-  function handleLoginSubmit() {
+  async function handleLoginSubmit() {
     if (!username.trim() || !password.trim()) {
       error = 'Please enter both username and password';
       return;
@@ -18,22 +19,30 @@
     isLoading = true;
     error = '';
 
-    // Simulate login
-    setTimeout(() => {
-      if (username === 'demo' && password === 'demo') {
-        // Call the parent's handleLogin function with user data
-        handleLogin({
-          username: username,
-          email: 'demo@example.com',
-          id: 1
-        });
-        // Redirect to the dashboard
-        navigate('/', { replace: true });
-      } else {
-        error = 'Invalid username or password';
-        isLoading = false;
-      }
-    }, 1000);
+    try {
+      // Call the real login API
+      const response = await usersApi.login(username, password);
+      
+      // Set the auth token for future requests
+      setAuthToken(response.session_token);
+      
+      // Call the parent's handleLogin function with user data
+      handleLogin({
+        username: response.user.username,
+        email: response.user.email,
+        id: response.user.id,
+        role: response.user.role,
+        sessionToken: response.session_token
+      });
+      
+      // Redirect to the dashboard
+      navigate('/', { replace: true });
+    } catch (err) {
+      console.error('Login error:', err);
+      error = err.message || 'Invalid username or password';
+    } finally {
+      isLoading = false;
+    }
   }
 
   function handleKeyPress(event) {

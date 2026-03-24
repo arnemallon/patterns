@@ -108,14 +108,52 @@ def classify_address():
 def get_history():
     """
     Get classification history
-    Query params: limit (default 10), offset (default 0)
+    Query params: limit (default 10), offset (default 0), search, classification, date_range
     """
     try:
         limit = request.args.get('limit', 10, type=int)
         offset = request.args.get('offset', 0, type=int)
+        search = request.args.get('search', '').strip()
+        classification = request.args.get('classification', '').strip()
+        date_range = request.args.get('date_range', '').strip()
         
-        # Get recent classifications
-        classifications = Classification.query\
+        # Start with base query
+        query = Classification.query
+        
+        # Apply search filter
+        if search:
+            query = query.filter(Classification.address.ilike(f'%{search}%'))
+        
+        # Apply classification filter
+        if classification and classification != 'all':
+            try:
+                classification_num = int(classification)
+                query = query.filter(Classification.classification == classification_num)
+            except ValueError:
+                pass
+        
+        # Apply date range filter
+        if date_range and date_range != 'all':
+            now = datetime.utcnow()
+            if date_range == 'today':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            elif date_range == 'week':
+                start_date = now - timedelta(days=7)
+            elif date_range == 'month':
+                start_date = now - timedelta(days=30)
+            elif date_range == 'year':
+                start_date = now - timedelta(days=365)
+            else:
+                start_date = None
+            
+            if start_date:
+                query = query.filter(Classification.created_at >= start_date)
+        
+        # Get total count for pagination
+        total_count = query.count()
+        
+        # Apply ordering, limit, and offset
+        classifications = query\
             .order_by(Classification.created_at.desc())\
             .limit(limit)\
             .offset(offset)\
@@ -123,7 +161,7 @@ def get_history():
         
         return jsonify({
             'classifications': [c.to_dict() for c in classifications],
-            'total': Classification.query.count(),
+            'total': total_count,
             'limit': limit,
             'offset': offset
         })
@@ -135,13 +173,45 @@ def get_history():
 @api.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'services': {
-            'feature_service': 'available',
-            'ml_service': 'available' if ml_service.model else 'fallback'
-        }
-    })
+    try:
+        # Check if services are available
+        feature_status = 'available' if feature_service else 'unavailable'
+        ml_status = 'available' if ml_service.model else 'fallback'
+        
+        # Test feature extraction with a simple address
+        test_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+        test_features = None
+        test_prediction = None
+        
+        try:
+            test_features = feature_service.extract_features(test_address)
+            logger.info(f"Test feature extraction successful: {test_features}")
+        except Exception as e:
+            logger.error(f"Test feature extraction failed: {e}")
+        
+        try:
+            if test_features:
+                test_prediction = ml_service.predict(test_features, address=test_address)
+                logger.info(f"Test prediction successful: {test_prediction}")
+        except Exception as e:
+            logger.error(f"Test prediction failed: {e}")
+        
+        return jsonify({
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'services': {
+                'feature_service': feature_status,
+                'ml_service': ml_status
+            },
+            'test_features': test_features is not None,
+            'test_prediction': test_prediction is not None
+        })
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return jsonify({
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 @api.route('/stats', methods=['GET'])
 def get_statistics():
@@ -384,6 +454,36 @@ def address_count_over_time():
         logger.error(f"Error fetching address count over time: {str(e)}")
         return jsonify({'error': 'Failed to fetch address count over time'}), 500 
 
+@api.route('/test-classify', methods=['POST'])
+def test_classify():
+    """Test endpoint for single address classification"""
+    try:
+        data = request.get_json()
+        address = data.get('address')
+        
+        if not address:
+            return jsonify({'error': 'No address provided'}), 400
+            
+        logger.info(f"Test classification for address: {address}")
+        
+        # Extract features
+        features = feature_service.extract_features(address)
+        logger.info(f"Features extracted: {features}")
+        
+        # Make prediction
+        prediction_result = ml_service.predict(features, address=address)
+        logger.info(f"Prediction result: {prediction_result}")
+        
+        return jsonify({
+            'address': address,
+            'features': features,
+            'prediction': prediction_result
+        })
+        
+    except Exception as e:
+        logger.error(f"Test classification failed: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
 @api.route('/batch-classify', methods=['POST', 'OPTIONS'])
 def batch_classify():
     if request.method == 'OPTIONS':
@@ -407,9 +507,33 @@ def batch_classify():
                 logger.debug(f"Extracting features for {address}")
                 features = feature_service.extract_features(address)
                 logger.debug(f"Features for {address}: {features}")
+                
+                if not features:
+                    raise ValueError("No features extracted")
+                
                 logger.debug(f"Predicting classification for {address}")
                 prediction_result = ml_service.predict(features, address=address)
                 logger.debug(f"Prediction result for {address}: {prediction_result}")
+                
+                if not prediction_result or 'prediction' not in prediction_result:
+                    raise ValueError("Invalid prediction result")
+                
+                # Save successful classification to history
+                try:
+                    classification = Classification(
+                        address=address,
+                        classification=int(prediction_result['prediction']),
+                        confidence=round(float(prediction_result['confidence']), 8),
+                        features=features,
+                        created_at=datetime.utcnow()
+                    )
+                    db.session.add(classification)
+                    db.session.commit()
+                    logger.info(f"Saved classification for {address} to history")
+                except Exception as save_error:
+                    logger.error(f"Failed to save classification for {address} to history: {save_error}")
+                    # Continue processing even if save fails
+                
                 results.append({
                     'address': address,
                     'classification': int(prediction_result['prediction']),

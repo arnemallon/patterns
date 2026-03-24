@@ -29,7 +29,35 @@
   }
 
   function handleFilterChange() {
-    // Filters will automatically trigger reload in ClassificationHistory component
+    // Reset to first page when filters change
+    // The ClassificationHistory component will automatically reload due to reactive statement
+  }
+
+  function clearAllFilters() {
+    searchTerm = '';
+    selectedFilter = 'all';
+    dateRange = 'all';
+  }
+
+  function getCategoryLabel(filterValue) {
+    const categories = [
+      'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
+      'P2P Financial Infrastructure Service', 'P2P Financial Service', 'Gambling',
+      'Government Criminal Blacklist', 'Money Laundering', 'Ponzi Scheme',
+      'Mining Pool', 'Tumbler', 'Individual Wallet'
+    ];
+    const index = parseInt(filterValue);
+    return categories[index] || filterValue;
+  }
+
+  function getDateRangeLabel(dateRange) {
+    const labels = {
+      'today': 'Today',
+      'week': 'This Week',
+      'month': 'This Month',
+      'year': 'This Year'
+    };
+    return labels[dateRange] || dateRange;
   }
 </script>
 
@@ -41,11 +69,7 @@
       <button 
         class="clear-filters-btn" 
         class:disabled={!searchTerm && selectedFilter === 'all' && dateRange === 'all'}
-        on:click={() => {
-          searchTerm = '';
-          selectedFilter = 'all';
-          dateRange = 'all';
-        }}
+        on:click={clearAllFilters}
         disabled={!searchTerm && selectedFilter === 'all' && dateRange === 'all'}
       >
         Clear Filters
@@ -103,6 +127,24 @@
       </div>
     </div>
   </div>
+
+  <!-- Active Filters Summary -->
+  {#if searchTerm || selectedFilter !== 'all' || dateRange !== 'all'}
+    <div class="active-filters" in:fade>
+      <div class="filters-summary">
+        <span class="filters-label">Active Filters:</span>
+        {#if searchTerm}
+          <span class="filter-tag">Search: "{searchTerm}"</span>
+        {/if}
+        {#if selectedFilter !== 'all'}
+          <span class="filter-tag">Category: {getCategoryLabel(selectedFilter)}</span>
+        {/if}
+        {#if dateRange !== 'all'}
+          <span class="filter-tag">Date: {getDateRangeLabel(dateRange)}</span>
+        {/if}
+      </div>
+    </div>
+  {/if}
 
   <!-- History Component -->
   <div class="history-container">
@@ -231,6 +273,37 @@
   .filter-group select:focus {
     outline: none;
     border-color: var(--accent-color);
+  }
+
+  /* Active Filters */
+  .active-filters {
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+  }
+
+  .filters-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+  }
+
+  .filters-label {
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .filter-tag {
+    background: var(--accent-color);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
   }
 
   /* History Container */

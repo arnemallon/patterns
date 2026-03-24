@@ -10,7 +10,11 @@ class Classification(db.Model):
     classification = db.Column(db.Integer, nullable=False)
     confidence = db.Column(db.Float(precision=8), nullable=False)
     features = db.Column(db.JSON)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    # Relationships
+    creator = db.relationship("User", back_populates="classifications")
     
     def to_dict(self):
         return {
@@ -19,6 +23,7 @@ class Classification(db.Model):
             'classification': int(self.classification),
             'confidence': round(float(self.confidence), 8),
             'features': self.features,
+            'created_by': self.created_by,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
     

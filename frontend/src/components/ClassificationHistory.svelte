@@ -3,6 +3,11 @@
   import { apiService } from '../services/api.js';
   import { fly, fade, scale } from 'svelte/transition';
   
+  // Props for filtering
+  export let searchTerm = '';
+  export let selectedFilter = 'all';
+  export let dateRange = 'all';
+  
   let classifications = [];
   let loading = true;
   let error = null;
@@ -21,6 +26,12 @@
     intervalId = setInterval(loadHistory, 10000); // Poll every 10 seconds
   });
 
+  // Reactive statements to reload data when filters change
+  $: if (searchTerm !== undefined || selectedFilter !== undefined || dateRange !== undefined) {
+    currentPage = 1; // Reset to first page when filters change
+    loadHistory();
+  }
+
   onDestroy(() => {
     if (intervalId) {
       clearInterval(intervalId);
@@ -36,7 +47,11 @@
     error = null;
     try {
       const offset = (currentPage - 1) * limit;
-      const response = await apiService.getHistory(limit, offset);
+      const response = await apiService.getHistory(limit, offset, {
+        search: searchTerm,
+        classification: selectedFilter,
+        dateRange: dateRange
+      });
       classifications = response.classifications;
       totalItems = response.total;
     } catch (err) {
@@ -90,7 +105,10 @@
 
 <div class="history-container" in:fly={{ y: 20, duration: 300 }}>
     <div class="header">
-        <h2>Classification History</h2>
+        <div class="header-left">
+          <h2>Classification History</h2>
+          <span class="total-count">({totalItems} total)</span>
+        </div>
         {#if loading}
           <div class="loading-indicator">
             <div class="loading-spinner"></div>
@@ -126,7 +144,13 @@
                   </tr>
                 {/each}
             {:else if classifications.length === 0}
-                 <tr><td colspan="4" class="status-cell">No history found.</td></tr>
+                 <tr><td colspan="4" class="status-cell">
+                   {#if searchTerm || selectedFilter !== 'all' || dateRange !== 'all'}
+                     No results found for the selected filters.
+                   {:else}
+                     No history found.
+                   {/if}
+                 </td></tr>
             {:else}
                 {#each classifications as item, i}
                     <tr 
@@ -177,6 +201,18 @@
       padding: var(--spacing-lg);
       border-bottom: 1px solid var(--border-color);
       background: var(--background-primary);
+  }
+
+  .header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+  }
+
+  .total-count {
+      color: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-normal);
   }
 
   h2 {

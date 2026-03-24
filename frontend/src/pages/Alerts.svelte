@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { apiService, alertsApi } from '../services/api.js';
 
   let alerts = [];
   let triggeredAlerts = [];
@@ -8,131 +9,130 @@
   let showCreateAlertModal = false;
   let newAlertAddress = '';
   let newAlertType = 'new_transaction';
-  let newAlertThreshold = 0.1;
+  let newAlertThreshold = 10; // Store as percentage (0-100)
   let newAlertEmail = '';
+  let loading = true;
+  let creating = false;
+  let error = null;
 
-  onMount(() => {
-    // Mock data
-    alerts = [
-      {
-        id: 1,
-        address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-        type: 'new_transaction',
-        threshold: 0.1,
-        email: 'investigator@example.com',
-        status: 'active',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2),
-        last_triggered: new Date(Date.now() - 1000 * 60 * 60 * 6),
-        trigger_count: 3
-      },
-      {
-        id: 2,
-        address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy',
-        type: 'high_risk_transaction',
-        threshold: 0.7,
-        email: 'investigator@example.com',
-        status: 'active',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-        last_triggered: null,
-        trigger_count: 0
-      },
-      {
-        id: 3,
-        address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-        type: 'large_transaction',
-        threshold: 0.5,
-        email: 'analyst@example.com',
-        status: 'active',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 1),
-        last_triggered: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        trigger_count: 1
-      },
-      {
-        id: 4,
-        address: '1FvzCLoTPGANNjWoUo6jUGuAG3wg1w4YjR',
-        type: 'suspicious_pattern',
-        threshold: 0.8,
-        email: 'investigator@example.com',
-        status: 'paused',
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10),
-        last_triggered: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3),
-        trigger_count: 5
-      }
-    ];
-
-    // Separate alerts into triggered and active
-    triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
-    activeAlerts = alerts.filter(alert => alert.status === 'active');
+  onMount(async () => {
+    await loadAlerts();
   });
 
-  function handleCreateAlert() {
-    if (newAlertAddress.trim() && newAlertEmail.trim()) {
-      const newAlert = {
-        id: Date.now(),
+  async function loadAlerts() {
+    try {
+      loading = true;
+      const { alerts: serverAlerts } = await alertsApi.list();
+      alerts = (serverAlerts || []).map(a => ({
+        ...a,
+        // normalize date strings to Date objects for formatting
+        created_at: a.created_at ? new Date(a.created_at) : null,
+        last_triggered: a.last_triggered ? new Date(a.last_triggered) : null
+      }));
+      triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
+      activeAlerts = alerts.filter(alert => alert.status === 'active');
+    } catch (err) {
+      error = err.message || 'Failed to load alerts';
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function handleCreateAlert() {
+    // Basic validation
+    if (!newAlertAddress.trim()) {
+      error = 'Bitcoin address is required';
+      return;
+    }
+    
+    if (!newAlertEmail.trim()) {
+      error = 'Email address is required';
+      return;
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newAlertEmail.trim())) {
+      error = 'Please enter a valid email address';
+      return;
+    }
+    
+    // Basic Bitcoin address validation
+    if (!(newAlertAddress.startsWith('1') || newAlertAddress.startsWith('3') || newAlertAddress.startsWith('bc1'))) {
+      error = 'Please enter a valid Bitcoin address';
+      return;
+    }
+    
+    try {
+      creating = true;
+      const { alert: created } = await alertsApi.create({
         address: newAlertAddress,
         type: newAlertType,
-        threshold: newAlertThreshold,
-        email: newAlertEmail,
-        status: 'active',
-        created_at: new Date(),
-        last_triggered: null,
-        trigger_count: 0
+        threshold: newAlertThreshold / 100, // Convert percentage to decimal
+        email: newAlertEmail
+      });
+      const newAlert = {
+        ...created,
+        created_at: created.created_at ? new Date(created.created_at) : new Date(),
+        last_triggered: created.last_triggered ? new Date(created.last_triggered) : null
       };
-      
       alerts = [...alerts, newAlert];
       activeAlerts = alerts.filter(alert => alert.status === 'active');
-      triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
+      triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
       
       showCreateAlertModal = false;
       newAlertAddress = '';
       newAlertType = 'new_transaction';
-      newAlertThreshold = 0.1;
+      newAlertThreshold = 10; // Reset to 10%
       newAlertEmail = '';
+      error = null; // Clear any previous errors
+    } catch (err) {
+      error = err.message || 'Failed to create alert';
+    } finally {
+      creating = false;
     }
   }
 
-  function handleToggleAlert(alertId) {
-    alerts = alerts.map(alert => 
-      alert.id === alertId 
-        ? { ...alert, status: alert.status === 'active' ? 'paused' : 'active' }
-        : alert
-    );
-    
-    // Update filtered arrays
-    activeAlerts = alerts.filter(alert => alert.status === 'active');
-    triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
+  async function handleToggleAlert(alertId) {
+    try {
+      const { alert: updated } = await alertsApi.toggle(alertId);
+      alerts = alerts.map(alert => 
+        alert.id === alertId 
+          ? { ...alert, ...updated, created_at: updated.created_at ? new Date(updated.created_at) : alert.created_at, last_triggered: updated.last_triggered ? new Date(updated.last_triggered) : alert.last_triggered }
+          : alert
+      );
+      activeAlerts = alerts.filter(alert => alert.status === 'active');
+      triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
+    } catch (err) {
+      error = err.message || 'Failed to toggle alert';
+    }
   }
 
-  function handleDeleteAlert(alertId) {
+  async function handleDeleteAlert(alertId) {
     if (confirm('Are you sure you want to delete this alert?')) {
-      alerts = alerts.filter(alert => alert.id !== alertId);
-      activeAlerts = alerts.filter(alert => alert.status === 'active');
-      triggeredAlerts = alerts.filter(alert => alert.trigger_count > 0);
+      try {
+        await alertsApi.remove(alertId);
+        alerts = alerts.filter(alert => alert.id !== alertId);
+        activeAlerts = alerts.filter(alert => alert.status === 'active');
+        triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
+      } catch (err) {
+        error = err.message || 'Failed to delete alert';
+      }
     }
   }
 
   function getAlertTypeLabel(type) {
     switch (type) {
       case 'new_transaction': return 'New Transaction';
-      case 'high_risk_transaction': return 'High Risk Transaction';
+      case 'high_risk_transaction': return 'High Risk';
       case 'large_transaction': return 'Large Transaction';
       case 'suspicious_pattern': return 'Suspicious Pattern';
       default: return type;
     }
   }
 
-  function getAlertTypeIcon(type) {
-    switch (type) {
-      case 'new_transaction': return '🔄';
-      case 'high_risk_transaction': return '⚠️';
-      case 'large_transaction': return '💰';
-      case 'suspicious_pattern': return '🚨';
-      default: return '🔔';
-    }
-  }
-
   function getStatusColor(status) {
-    return status === 'active' ? '#28a745' : '#6c757d';
+    return status === 'active' ? 'rgb(0, 136, 255)' : '#6c757d';
   }
 
   function formatDate(date) {
@@ -149,6 +149,13 @@
   function formatAddress(address) {
     return `${address.substring(0, 12)}...${address.substring(address.length - 8)}`;
   }
+
+  function handleAddressClick(address) {
+    window.location.href = `/analysis?address=${address}`;
+  }
+
+  // Reactive statement to update threshold slider background
+  $: thresholdGradient = `linear-gradient(to right, #e9ecef 0%, #e9ecef ${newAlertThreshold}%, rgb(0, 136, 255) ${newAlertThreshold}%, rgb(0, 136, 255) 100%)`;
 </script>
 
 <div class="alerts" in:fly={{ y: 20, duration: 500 }}>
@@ -180,16 +187,24 @@
     </div>
   </div>
 
+  {#if error}
+    <div class="error-message" in:fade>
+      {error}
+    </div>
+  {/if}
+
   <!-- Triggered Alerts Table -->
   <div class="alerts-section">
     <div class="section-header">
       <h2>Triggered Alerts ({triggeredAlerts.length})</h2>
-      <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
-        Create Alert
-      </button>
     </div>
 
-    {#if triggeredAlerts.length > 0}
+    {#if loading}
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Loading alerts...</p>
+      </div>
+    {:else if triggeredAlerts.length > 0}
       <div class="table-container">
         <table class="alerts-table">
           <thead>
@@ -199,28 +214,30 @@
               <th>Threshold</th>
               <th>Last Triggered</th>
               <th>Trigger Count</th>
-              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {#each triggeredAlerts as alert, i}
-              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
-                <td><code title={alert.address}>{formatAddress(alert.address)}</code></td>
+              <tr>
+                <td>
+                  <button 
+                    class="clickable-address"
+                    title={alert.address}
+                    on:click={() => handleAddressClick(alert.address)}
+                  >
+                    {formatAddress(alert.address)}
+                  </button>
+                </td>
                 <td>
                   <span class="alert-type-badge">
-                    {getAlertTypeIcon(alert.type)} {getAlertTypeLabel(alert.type)}
+                    {getAlertTypeLabel(alert.type)}
                   </span>
                 </td>
                 <td>{(alert.threshold * 100).toFixed(0)}%</td>
-                <td>{formatDate(alert.last_triggered)}</td>
+                <td class="date-cell">{formatDate(alert.last_triggered)}</td>
                 <td>
                   <span class="trigger-count">{alert.trigger_count}</span>
-                </td>
-                <td>
-                  <span class="status-badge {alert.status}">
-                    {alert.status.charAt(0).toUpperCase() + alert.status.slice(1)}
-                  </span>
                 </td>
                 <td class="actions-cell">
                   <button 
@@ -228,14 +245,14 @@
                     on:click={() => handleToggleAlert(alert.id)}
                     title={alert.status === 'active' ? 'Pause Alert' : 'Resume Alert'}
                   >
-                    {alert.status === 'active' ? '⏸️' : '▶️'}
+                    {alert.status === 'active' ? 'Pause' : 'Resume'}
                   </button>
                   <button 
                     class="action-btn delete-btn"
                     on:click={() => handleDeleteAlert(alert.id)}
                     title="Delete Alert"
                   >
-                    🗑️
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -245,7 +262,6 @@
       </div>
     {:else}
       <div class="empty-state">
-        <div class="empty-icon">🔔</div>
         <h4>No triggered alerts</h4>
         <p>Alerts that have been triggered will appear here.</p>
       </div>
@@ -256,9 +272,17 @@
   <div class="alerts-section">
     <div class="section-header">
       <h2>Active Alerts ({activeAlerts.length})</h2>
+      <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
+        Create Alert
+      </button>
     </div>
 
-    {#if activeAlerts.length > 0}
+    {#if loading}
+      <div class="loading-state">
+        <div class="loading-spinner"></div>
+        <p>Loading alerts...</p>
+      </div>
+    {:else if activeAlerts.length > 0}
       <div class="table-container">
         <table class="alerts-table">
           <thead>
@@ -266,39 +290,43 @@
               <th>Address</th>
               <th>Alert Type</th>
               <th>Threshold</th>
-              <th>Email</th>
-              <th>Created</th>
               <th>Last Triggered</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {#each activeAlerts as alert, i}
-              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
-                <td><code title={alert.address}>{formatAddress(alert.address)}</code></td>
+              <tr>
+                <td>
+                  <button 
+                    class="clickable-address"
+                    title={alert.address}
+                    on:click={() => handleAddressClick(alert.address)}
+                  >
+                    {formatAddress(alert.address)}
+                  </button>
+                </td>
                 <td>
                   <span class="alert-type-badge">
-                    {getAlertTypeIcon(alert.type)} {getAlertTypeLabel(alert.type)}
+                    {getAlertTypeLabel(alert.type)}
                   </span>
                 </td>
                 <td>{(alert.threshold * 100).toFixed(0)}%</td>
-                <td>{alert.email}</td>
-                <td>{formatDate(alert.created_at)}</td>
-                <td>{formatDate(alert.last_triggered)}</td>
+                <td class="date-cell">{formatDate(alert.last_triggered)}</td>
                 <td class="actions-cell">
                   <button 
                     class="action-btn"
                     on:click={() => handleToggleAlert(alert.id)}
                     title="Pause Alert"
                   >
-                    ⏸️
+                    Pause
                   </button>
                   <button 
                     class="action-btn delete-btn"
                     on:click={() => handleDeleteAlert(alert.id)}
                     title="Delete Alert"
                   >
-                    🗑️
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -308,7 +336,6 @@
       </div>
     {:else}
       <div class="empty-state">
-        <div class="empty-icon">🔔</div>
         <h4>No active alerts</h4>
         <p>Create your first alert to start monitoring Bitcoin addresses for suspicious activity.</p>
         <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
@@ -328,17 +355,17 @@
         </div>
         <div class="modal-content">
           <div class="form-group">
-            <label for="alert-address">Bitcoin Address:</label>
+            <label for="alert-address">Bitcoin Address</label>
             <input 
               id="alert-address" 
               type="text" 
               bind:value={newAlertAddress}
-              placeholder="Enter Bitcoin address to monitor..."
+              placeholder="Enter Bitcoin address to monitor"
             />
           </div>
           
           <div class="form-group">
-            <label for="alert-type">Alert Type:</label>
+            <label for="alert-type">Alert Type</label>
             <select id="alert-type" bind:value={newAlertType}>
               <option value="new_transaction">New Transaction</option>
               <option value="high_risk_transaction">High Risk Transaction</option>
@@ -348,31 +375,35 @@
           </div>
           
           <div class="form-group">
-            <label for="alert-threshold">Risk Threshold (%):</label>
-            <input 
-              id="alert-threshold" 
-              type="range" 
-              min="0" 
-              max="100" 
-              bind:value={newAlertThreshold}
-              on:input={(e) => newAlertThreshold = e.target.value / 100}
-            />
-            <span class="threshold-value">{(newAlertThreshold * 100).toFixed(0)}%</span>
+            <label for="alert-threshold">Risk Threshold</label>
+            <div class="threshold-container">
+              <input 
+                id="alert-threshold" 
+                type="range" 
+                min="0" 
+                max="100" 
+                bind:value={newAlertThreshold}
+                style="background: {thresholdGradient}"
+              />
+              <span class="threshold-value">{newAlertThreshold}%</span>
+            </div>
           </div>
           
           <div class="form-group">
-            <label for="alert-email">Notification Email:</label>
+            <label for="alert-email">Notification Email</label>
             <input 
               id="alert-email" 
               type="email" 
               bind:value={newAlertEmail}
-              placeholder="Enter email for notifications..."
+              placeholder="Enter email for notifications"
             />
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" on:click={() => showCreateAlertModal = false}>Cancel</button>
-          <button class="btn btn-primary" on:click={handleCreateAlert}>Create Alert</button>
+          <button class="btn btn-secondary" on:click={() => showCreateAlertModal = false} disabled={creating}>Cancel</button>
+          <button class="btn btn-primary" on:click={handleCreateAlert} disabled={creating}>
+            {creating ? 'Creating...' : 'Create Alert'}
+          </button>
         </div>
       </div>
     </div>
@@ -383,45 +414,47 @@
   .alerts {
     max-width: 1200px;
     margin: 0 auto;
+    font-family: 'Mulish', sans-serif;
+    color: var(--text-primary);
   }
 
   .alerts-overview {
-    display: flex;
-    gap: var(--spacing-xl);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
     margin-bottom: var(--spacing-xl);
   }
 
   .overview-card {
-    flex: 1;
     background: var(--background-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 0;
-    box-shadow: none;
+    min-height: 100px;
   }
 
   .overview-content h3 {
     margin: 0;
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-semibold);
+    font-size: 2rem;
+    font-weight: 600;
     color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .overview-content p {
     margin: 0;
     color: var(--text-secondary);
-    font-size: var(--font-size-base);
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
   .alerts-section {
     background: var(--background-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
   }
 
@@ -429,180 +462,227 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0;
   }
 
   .section-header h2 {
     margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-medium);
+    font-size: 1.25rem;
+    font-weight: 600;
     color: var(--text-primary);
+    line-height: 1.2;
   }
 
-  .alerts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: var(--spacing-lg);
+  .table-container {
+    width: 100%;
+    background: var(--background-primary);
   }
 
-  .alert-card {
+  .alerts-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-sm);
+    background: var(--background-primary);
+  }
+
+  .alerts-table th,
+  .alerts-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+  }
+
+  .alerts-table th {
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
     background: var(--background-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    padding: var(--spacing-lg);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-    box-shadow: none;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
-  .alert-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-md);
+  .alerts-table tr:nth-child(even) td {
+    background: var(--background-secondary);
   }
 
-  .alert-type .type-label {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
+  .alerts-table tr:nth-child(odd) td {
+    background: var(--background-primary);
   }
 
-  .status-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: var(--border-radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    background: var(--background-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+  .alerts-table tr {
+    cursor: pointer;
+    transition: all 0.2s;
   }
 
-  .status-badge.active {
-    background: var(--accent-color);
-    color: white;
-    border: 1px solid var(--accent-color);
+  .alerts-table tr:hover {
+    background-color: #f8f9fa;
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
-  .status-badge.paused {
-    background: var(--background-tertiary);
-    color: var(--text-tertiary);
-    border: 1px solid var(--border-color);
-  }
-
-  .alert-content {
-    margin-bottom: 1rem;
-  }
-
-  .address-info {
-    display: flex;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-    color: var(--text-secondary);
-  }
-
-  .address-label {
-    font-weight: var(--font-weight-medium);
-    color: var(--text-tertiary);
-  }
-
-  .address-value {
+  .clickable-address {
+    cursor: pointer;
+    color: rgb(0, 136, 255);
+    transition: color var(--transition-fast);
     font-family: monospace;
-    color: var(--text-primary);
+    background: var(--background-tertiary);
+    padding: 0.2rem 0.4rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.85rem;
+    border: none;
+    text-align: left;
+    width: 100%;
   }
 
-  .alert-details {
-    display: flex;
-    gap: var(--spacing-lg);
-    margin-top: var(--spacing-sm);
+  .clickable-address:hover {
+    color: rgb(0, 102, 204);
   }
 
-  .detail-item {
+  .alert-type-badge {
+    color: rgb(0, 136, 255);
+    font-weight: var(--font-weight-medium);
+  }
+
+
+
+  .trigger-count {
+    color: rgb(0, 136, 255);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .date-cell {
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
+
+  .actions-cell {
     display: flex;
-    flex-direction: column;
     gap: var(--spacing-xs);
   }
 
-  .detail-label {
-    color: var(--text-tertiary);
-    font-size: var(--font-size-xs);
-  }
-
-  .detail-value {
+  .action-btn {
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    background: var(--background-primary);
     color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
   }
 
-  .alert-actions {
-    display: flex;
-    gap: 0.5rem;
+  .action-btn:hover {
+    background: var(--background-secondary);
+    border-color: var(--border-color-light);
+  }
+
+  .action-btn.delete-btn {
+    color: #dc3545;
+    border-color: #dc3545;
+  }
+
+  .action-btn.delete-btn:hover {
+    background: #dc3545;
+    color: white;
   }
 
   .empty-state {
     text-align: center;
     padding: 3rem;
-    color: #6c757d;
-  }
-
-  .empty-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
+    color: var(--text-secondary);
   }
 
   .empty-state h4 {
     margin: 0 0 0.5rem 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .empty-state p {
     margin: 0 0 1.5rem 0;
-    font-size: 1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border-color);
+    border-top: 2px solid rgb(0, 136, 255);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .error-message {
+    background: #f8d7da;
+    color: #721c24;
+    padding: var(--spacing-md);
+    border: 1px solid #f5c6cb;
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
     padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-md);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
+    font-family: 'Mulish', sans-serif;
   }
 
   .btn-primary {
-    background-color: #007bff;
+    background: rgb(0, 136, 255);
     color: white;
+    border-color: rgb(0, 136, 255);
   }
 
   .btn-primary:hover {
-    background-color: #0056b3;
+    background: rgb(0, 102, 204);
+    border-color: rgb(0, 102, 204);
+  }
+
+  .btn-primary:disabled {
+    background: #6c757d;
+    border-color: #6c757d;
+    cursor: not-allowed;
   }
 
   .btn-secondary {
-    background-color: #6c757d;
-    color: white;
+    background: var(--background-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color);
   }
 
   .btn-secondary:hover {
-    background-color: #545b62;
+    background: var(--background-tertiary);
+    border-color: var(--border-color-light);
   }
 
-  .btn-danger {
-    background-color: #dc3545;
-    color: white;
-  }
-
-  .btn-danger:hover {
-    background-color: #c82333;
-  }
-
-  .btn-icon {
-    margin-right: 0.5rem;
+  .btn-secondary:disabled {
+    background: var(--background-tertiary);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
   }
 
   .modal-overlay {
@@ -611,7 +691,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -620,9 +700,9 @@
   }
 
   .modal {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    background: var(--background-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
     width: 100%;
     max-width: 500px;
     max-height: 90vh;
@@ -630,8 +710,8 @@
   }
 
   .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -639,9 +719,10 @@
 
   .modal-header h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--text-primary);
+    line-height: 1.2;
   }
 
   .modal-close {
@@ -649,7 +730,7 @@
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    color: #6c757d;
+    color: var(--text-secondary);
     padding: 0;
     width: 30px;
     height: 30px;
@@ -659,68 +740,114 @@
   }
 
   .modal-close:hover {
-    color: #2c3e50;
+    color: var(--text-primary);
   }
 
   .modal-content {
-    padding: 1.5rem;
+    padding: var(--spacing-lg);
   }
 
   .modal-footer {
-    padding: 1.5rem;
-    border-top: 1px solid #e9ecef;
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: flex-end;
-    gap: 1rem;
+    gap: var(--spacing-md);
   }
 
   .form-group {
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-lg);
   }
 
   .form-group label {
     display: block;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--spacing-xs);
     font-weight: 500;
-    color: #2c3e50;
+    color: var(--text-primary);
+    font-size: 0.9rem;
   }
 
   .form-group input,
   .form-group select {
     width: 100%;
     padding: 0.5rem;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
     font-size: 0.9rem;
-    font-family: inherit;
+    font-family: 'Mulish', sans-serif;
+    background: var(--background-primary);
+    color: var(--text-primary);
   }
 
   .form-group input:focus,
   .form-group select:focus {
     outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+    border-color: rgb(0, 136, 255);
+  }
+
+  .threshold-container {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .threshold-container input[type="range"] {
+    flex: 1;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--background-secondary);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .threshold-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgb(0, 136, 255);
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .threshold-container input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgb(0, 136, 255);
+    cursor: pointer;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .threshold-value {
-    margin-left: 1rem;
-    font-weight: 500;
-    color: #007bff;
+    font-weight: 600;
+    color: rgb(0, 136, 255);
+    min-width: 3rem;
+    text-align: right;
+    font-size: 0.9rem;
   }
 
   @media (max-width: 768px) {
+    .alerts-overview {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
     .section-header {
       flex-direction: column;
-      gap: 1rem;
+      gap: var(--spacing-md);
       align-items: stretch;
     }
 
-    .alerts-grid {
-      grid-template-columns: 1fr;
+    .actions-cell {
+      flex-direction: column;
     }
 
-    .alert-actions {
-      flex-direction: column;
+    .modal {
+      margin: 1rem;
     }
   }
 </style> 

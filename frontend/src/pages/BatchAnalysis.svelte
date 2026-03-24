@@ -11,6 +11,8 @@
   let dragOver = false;
   let error = null;
 
+
+
   async function handleAnalyze() {
     if (!addressList.trim()) return;
     
@@ -31,7 +33,7 @@
         address: result.address,
         classification: result.classification,
         confidence: result.confidence,
-        status: result.status,
+        status: result.status === 'success' ? 'completed' : result.status,
         error: result.error,
         cached: result.cached || false
       }));
@@ -82,8 +84,12 @@
 
   function exportResults() {
     const csvContent = [
-      'Address,Classification,Confidence,Status',
-      ...results.map(r => `${r.address},${getCategoryDescription(r.classification)},${(r.confidence * 100).toFixed(1)}%,${r.status}`)
+      'Address,Status,Classification,Confidence',
+      ...results.map(r => {
+        const classification = r.classification !== null ? getCategoryDescription(r.classification) : 'Unknown';
+        const confidence = r.confidence !== null ? `${(r.confidence * 100).toFixed(1)}%` : '-';
+        return `${r.address},${r.status},${classification},${confidence}`;
+      })
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -103,6 +109,10 @@
   }
 
   function getCategoryDescription(prediction) {
+    if (prediction === null || prediction === undefined) {
+      return 'Unknown';
+    }
+    
     const categories = [
       'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
       'P2P Financial Infrastructure Service', 'P2P Financial Service', 'Gambling',
@@ -174,6 +184,9 @@
           Analyze Addresses
         {/if}
       </button>
+      
+
+      
       {#if showResults}
         <button class="btn btn-secondary" on:click={clearResults}>
           Clear Results
@@ -186,6 +199,7 @@
   {#if error}
     <div class="error-display" in:fly={{ y: 20, duration: 300 }}>
       <strong>Error:</strong> {error}
+      <button class="clear-error-btn" on:click={() => error = null}>×</button>
     </div>
   {/if}
 
@@ -214,6 +228,7 @@
             <tr>
               <th>#</th>
               <th>Address</th>
+              <th>Status</th>
               <th>Category</th>
               <th>Confidence</th>
             </tr>
@@ -223,15 +238,24 @@
               <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
                 <td>{r.id}</td>
                 <td><code title={r.address}>{formatAddress(r.address)}</code></td>
+                <td class="status-col">
+                  <span class="status-badge {r.status}">
+                    {r.status === 'completed' ? '✓' : '✗'}
+                  </span>
+                </td>
                 <td class="category-col">
-                  {#if r.status === 'completed'}
+                  {#if r.status === 'completed' && r.classification !== null}
                     {getCategoryDescription(r.classification)}
+                  {:else if r.status === 'completed' && r.classification === null}
+                    <span class="error-text">No classification</span>
                   {:else}
-                    <span class="error-text">Error</span>
+                    <span class="error-text" title={r.error || 'Unknown error'}>
+                      {r.error ? (r.error.length > 30 ? r.error.substring(0, 30) + '...' : r.error) : 'Error'}
+                    </span>
                   {/if}
                 </td>
                 <td class="confidence-col">
-                  {#if r.status === 'completed'}
+                  {#if r.status === 'completed' && r.confidence !== null}
                     {(r.confidence * 100).toFixed(1)}%
                   {:else}
                     -
@@ -396,20 +420,21 @@
     background: var(--background-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-lg);
-    padding: var(--spacing-xl);
   }
   .results-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: 0;
     flex-wrap: wrap;
     gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
   }
   .results-header h2 {
     margin: 0;
-    font-size: var(--font-size-xl);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
     font-family: var(--font-family);
   }
@@ -419,11 +444,11 @@
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
     font-family: var(--font-family);
+    font-weight: var(--font-weight-normal);
   }
   .results-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: var(--spacing-lg);
     font-family: var(--font-family);
   }
   .results-table th, .results-table td {
@@ -449,6 +474,8 @@
   .table-container {
     width: 100%;
     background: var(--background-primary);
+    margin: 0;
+    padding: 0;
   }
   
   .category-col {
@@ -460,11 +487,13 @@
     color: var(--accent-color);
     font-weight: var(--font-weight-medium);
   }
-  
+
   .error-text {
-    color: var(--error-color);
+    color: #dc3545;
     font-weight: var(--font-weight-medium);
   }
+  
+
   
   .error-display {
     padding: 1rem 1.5rem;
@@ -473,6 +502,28 @@
     border-radius: var(--border-radius-md);
     margin-bottom: var(--spacing-lg);
     animation: shake 0.5s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .clear-error-btn {
+    background: none;
+    border: none;
+    color: #721c24;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .clear-error-btn:hover {
+    background: rgba(114, 28, 36, 0.1);
   }
   
   @keyframes shake {
@@ -521,6 +572,15 @@
   .results-table td.status-badge.completed {
     background-color: var(--success-color);
     color: white;
+  }
+
+  .status-badge.error {
+    background-color: var(--error-color);
+    color: white;
+  }
+
+  .status-col {
+    text-align: center;
   }
   .results-table td.action-btn {
     background: none;

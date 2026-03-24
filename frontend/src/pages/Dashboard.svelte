@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
-  import { apiService } from '../services/api.js';
+  import { apiService, alertsApi } from '../services/api.js';
   import CategoryChart from '../components/CategoryChart.svelte';
   import LineChart from '../components/LineChart.svelte';
 
@@ -17,6 +17,7 @@
   let addressCountOverTime = {};
   let lastAddresses = [];
   let alerts = [];
+  let refreshingAlerts = false;
 
   onMount(async () => {
     try {
@@ -46,20 +47,27 @@
       const history = await apiService.getHistory(6, 0, {});
       lastAddresses = history.classifications || [];
 
-      // Fetch alerts (replace with real API call if available)
-      // Example: alerts = await apiService.getAlerts();
-      alerts = [
-        {
-          id: 1,
-          type: 'High Risk Transaction',
-          description: 'Large transaction detected from known mixer address'
-        },
-        {
-          id: 2,
-          type: 'New Transaction',
-          description: 'New transaction detected on monitored address'
-        }
-      ];
+      // Fetch triggered alerts from the alerts API
+      try {
+        const alertsResponse = await alertsApi.getTriggered();
+        const triggeredAlerts = alertsResponse.alerts || [];
+        
+        // Convert to dashboard format
+        alerts = triggeredAlerts.map(alert => ({
+          id: alert.id,
+          type: getAlertTypeLabel(alert.type),
+          description: `${alert.type.replace('_', ' ')} alert triggered for ${alert.address.substring(0, 8)}...`,
+          address: alert.address,
+          lastTriggered: alert.last_triggered ? new Date(alert.last_triggered) : null,
+          triggerCount: alert.trigger_count || 0
+        }));
+        
+        // Update pending alerts count
+        stats.pendingAlerts = triggeredAlerts.length;
+      } catch (error) {
+        console.error('Failed to fetch triggered alerts:', error);
+        alerts = [];
+      }
     } catch (error) {
       console.error('Failed to fetch statistics:', error);
       // Keep default values if API call fails
@@ -142,6 +150,46 @@
     const clampedIndex = Math.max(0, Math.min(12, index));
     return categories[clampedIndex];
   }
+
+  function getAlertTypeLabel(type) {
+    switch (type) {
+      case 'new_transaction': return 'New Transaction';
+      case 'high_risk_transaction': return 'High Risk';
+      case 'large_transaction': return 'Large Transaction';
+      case 'suspicious_pattern': return 'Suspicious Pattern';
+      default: return type;
+    }
+  }
+
+  function handleAddressClick(address) {
+    // Navigate to analysis page with the address
+    window.location.href = `/analysis?address=${address}`;
+  }
+
+  async function refreshAlerts() {
+    try {
+      refreshingAlerts = true;
+      const alertsResponse = await alertsApi.getTriggered();
+      const triggeredAlerts = alertsResponse.alerts || [];
+      
+      // Convert to dashboard format
+      alerts = triggeredAlerts.map(alert => ({
+        id: alert.id,
+        type: getAlertTypeLabel(alert.type),
+        description: `${alert.type.replace('_', ' ')} alert triggered for ${alert.address.substring(0, 8)}...`,
+        address: alert.address,
+        lastTriggered: alert.last_triggered ? new Date(alert.last_triggered) : null,
+        triggerCount: alert.trigger_count || 0
+      }));
+      
+      // Update pending alerts count
+      stats.pendingAlerts = triggeredAlerts.length;
+    } catch (error) {
+      console.error('Failed to refresh alerts:', error);
+    } finally {
+      refreshingAlerts = false;
+    }
+  }
 </script>
 
 <div class="dashboard" in:fly={{ y: 20, duration: 500 }}>
@@ -205,12 +253,25 @@
       <div class="dashboard-card alerts-widget">
         <div class="card-header">
           <h2>Alerts Triggered ({alerts.length})</h2>
+          <div class="header-actions">
+            <button class="refresh-btn" on:click={refreshAlerts} title="Refresh alerts" disabled={refreshingAlerts}>
+              {refreshingAlerts ? '⟳' : '↻'}
+            </button>
+            <a href="/alerts" class="view-all">View All</a>
+          </div>
         </div>
         <div class="alerts-widget-content">
           {#if alerts.length > 0}
             <ul class="alerts-list-widget">
               {#each alerts as alert}
-                <li><span class="alert-type">{alert.type}</span> <span class="alert-desc">- {alert.description}</span></li>
+                <li class="alert-item" on:click={() => handleAddressClick(alert.address)}>
+                  <div class="alert-header">
+                    <span class="alert-type">{alert.type}</span>
+                    <span class="alert-time">{formatTimeAgo(alert.lastTriggered || new Date())}</span>
+                  </div>
+                  <div class="alert-desc">{alert.description}</div>
+                  <div class="alert-meta">Triggered {alert.triggerCount} time{alert.triggerCount !== 1 ? 's' : ''}</div>
+                </li>
               {/each}
             </ul>
           {:else}
@@ -233,7 +294,11 @@
           </thead>
           <tbody>
             {#each lastAddresses as item, i}
-              <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+              <tr 
+                class={i % 2 === 0 ? 'even-row' : 'odd-row'}
+                on:click={() => handleAddressClick(item.address)}
+                title="Click to re-classify this address"
+              >
                 <td><code>{item.address.slice(0, 10)}...</code></td>
                 <td class="category-col">{getCategoryDescription(item.classification)}</td>
               </tr>
@@ -418,6 +483,34 @@
     color: var(--text-primary);
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .refresh-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: 0.25rem 0.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all var(--transition-fast);
+  }
+
+  .refresh-btn:hover:not(:disabled) {
+    background: var(--background-secondary);
+    color: var(--text-primary);
+    border-color: var(--border-color-light);
+  }
+
+  .refresh-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .view-all {
     font-size: var(--font-size-sm);
     color: var(--accent-color);
@@ -458,9 +551,17 @@
   }
   .recent-addresses-table .even-row {
     background: var(--background-secondary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
   }
   .recent-addresses-table .odd-row {
     background: var(--background-primary);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+  }
+  .recent-addresses-table .even-row:hover,
+  .recent-addresses-table .odd-row:hover {
+    background: var(--accent-color-light);
   }
 
   .recent-history-card {
@@ -491,32 +592,66 @@
     border-bottom: none;
   }
 
-  .alerts-widget-content {
-    padding: 0.5rem 0 0.5rem 0;
-  }
+
   .alerts-list-widget {
     list-style: none;
     margin: 0;
     padding: 0;
   }
-  .alerts-list-widget li {
-    padding: 0.3rem 0;
-    color: var(--text-primary);
-    font-size: 0.97rem;
+  .alert-item {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-color-light);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+  }
+  .alert-item:last-child {
+    border-bottom: none;
+  }
+  .alert-item:hover {
+    background-color: var(--background-secondary);
+    border-radius: var(--border-radius-md);
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25rem;
   }
   .alert-type {
     color: var(--accent-color);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .alert-time {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
   }
   .alert-desc {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+  .alert-meta {
     color: var(--text-secondary);
+    font-size: 0.8rem;
   }
   .no-alerts-text {
     color: var(--text-secondary);
     text-align: center;
+    padding: 2rem 0;
   }
 
   .alerts-widget {
-    min-height: 240px;
+    height: 240px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .alerts-widget-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0 0.5rem 0;
   }
 </style> 

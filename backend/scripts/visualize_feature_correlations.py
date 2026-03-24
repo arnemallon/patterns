@@ -65,7 +65,7 @@ def create_correlation_matrix(X, y, top_features):
     
     return corr_matrix, data_for_corr
 
-def plot_correlation_heatmap(corr_matrix, output_dir="results"):
+def plot_correlation_heatmap(corr_matrix, output_dir="/Users/arnemallon/Developer/BlockChainAnalysis/analysis_tools/pictures"):
     """Plot correlation heatmap using seaborn."""
     print("Creating correlation heatmap...")
     
@@ -93,12 +93,12 @@ def plot_correlation_heatmap(corr_matrix, output_dir="results"):
               fontsize=16, fontweight='bold', pad=20)
     plt.tight_layout()
     
-    # Save plot
+    # Save plot to analysis_tools/pictures
+    output_dir = "/Users/arnemallon/Developer/BlockChainAnalysis/analysis_tools/pictures"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    heatmap_path = os.path.join(output_dir, f"correlation_heatmap_{timestamp}.png")
+    heatmap_path = os.path.join(output_dir, "correlation_matrix_bitcoin.png")
     plt.savefig(heatmap_path, dpi=300, bbox_inches='tight')
     print(f"Correlation heatmap saved to: {heatmap_path}")
     
@@ -281,8 +281,8 @@ def main():
     print("GENERATING VISUALIZATIONS")
     print("="*60)
     
-    # 1. Correlation heatmap
-    plot_correlation_heatmap(corr_matrix, output_dir)
+    # 1. Correlation heatmap (saved to analysis_tools/pictures)
+    plot_correlation_heatmap(corr_matrix)
     
     # 2. Feature-label correlations
     plot_feature_label_correlations(corr_matrix, output_dir)
