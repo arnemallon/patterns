@@ -34,8 +34,35 @@ def create_app():
     from .routes import api
     app.register_blueprint(api, url_prefix='/api')
     
-    # Create database tables
+    # Root health check so Railway can verify the app is alive
+    @app.route('/')
+    def root_health():
+        return {'status': 'ok'}
+
+    # Create database tables and seed default user
     with app.app_context():
         db.create_all()
+        _seed_default_user(app)
     
-    return app 
+    return app
+
+
+def _seed_default_user(app):
+    """Create the default admin user if it doesn't exist yet."""
+    try:
+        from app.models.user import User
+        if not User.query.filter_by(username='admin').first():
+            admin = User(
+                username='admin',
+                email='admin@blockchainanalysis.com',
+                password='admin123',
+                first_name='System',
+                last_name='Administrator',
+                role='admin'
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print("Created default admin user.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"Warning: Could not seed default user: {e}")
