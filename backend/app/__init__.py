@@ -34,10 +34,23 @@ def create_app():
     from .routes import api
     app.register_blueprint(api, url_prefix='/api')
     
-    # Root health check so Railway can verify the app is alive
     @app.route('/')
     def root_health():
         return {'status': 'ok'}
+
+    @app.route('/debug/paths')
+    def debug_paths():
+        import glob
+        project_root = os.environ.get('PROJECT_ROOT', 'NOT SET')
+        ml_dir = os.path.join(project_root, 'ml-models')
+        ml_files = glob.glob(os.path.join(ml_dir, '**/*'), recursive=True) if os.path.exists(ml_dir) else []
+        return {
+            'project_root': project_root,
+            'cwd': os.getcwd(),
+            'ml_dir_exists': os.path.exists(ml_dir),
+            'ml_files': ml_files,
+            'app_contents': os.listdir('/app') if os.path.exists('/app') else [],
+        }
 
     # Create database tables and seed default user
     with app.app_context():
