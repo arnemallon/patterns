@@ -50,7 +50,7 @@ class MLService:
             
             # Recompile with legacy optimizer for compatibility
             self.model.compile(
-                optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                 loss='sparse_categorical_crossentropy',
                 metrics=['accuracy']
             )
@@ -134,7 +134,7 @@ class MLService:
                                 logger.info(f"Loading fallback model from {model_path}")
                                 model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
                                 model.compile(
-                                    optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                                    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                                     loss='sparse_categorical_crossentropy',
                                     metrics=['accuracy']
                                 )
@@ -162,7 +162,7 @@ class MLService:
                         logger.info(f"Loading keras model from {model_path_keras}")
                         model = tf.keras.models.load_model(model_path_keras, compile=False, safe_mode=False)
                         model.compile(
-                            optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                             loss='sparse_categorical_crossentropy',
                             metrics=['accuracy']
                         )
@@ -195,7 +195,7 @@ class MLService:
                         logger.info(f"Loading model from {model_path}")
                         model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
                         model.compile(
-                            optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
+                            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
                             loss='sparse_categorical_crossentropy',
                             metrics=['accuracy']
                         )
