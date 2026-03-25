@@ -52,6 +52,34 @@ def create_app():
             'app_contents': os.listdir('/app') if os.path.exists('/app') else [],
         }
 
+    @app.route('/debug/model')
+    def debug_model():
+        errors = []
+        model_path = os.path.join(os.environ.get('PROJECT_ROOT', '/app'), 'ml-models', 'without_structural_features', 'bitcoin_classifier.keras')
+        scaler_path = os.path.join(os.environ.get('PROJECT_ROOT', '/app'), 'ml-models', 'without_structural_features', 'scaler.json')
+        model_loaded = False
+        scaler_loaded = False
+        try:
+            import tensorflow as tf
+            model = tf.keras.models.load_model(model_path, compile=False)
+            model_loaded = True
+        except Exception as e:
+            errors.append(f"Model load error: {str(e)}")
+        try:
+            import json
+            with open(scaler_path, 'r') as f:
+                json.load(f)
+            scaler_loaded = True
+        except Exception as e:
+            errors.append(f"Scaler load error: {str(e)}")
+        return {
+            'model_path': model_path,
+            'scaler_path': scaler_path,
+            'model_loaded': model_loaded,
+            'scaler_loaded': scaler_loaded,
+            'errors': errors,
+        }
+
     # Create database tables and seed default user
     with app.app_context():
         db.create_all()
