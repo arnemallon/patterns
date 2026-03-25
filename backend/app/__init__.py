@@ -80,6 +80,37 @@ def create_app():
             'errors': errors,
         }
 
+    @app.route('/migrate/classifications', methods=['POST'])
+    def migrate_classifications():
+        from flask import request, jsonify
+        from app.models.classification import Classification
+        from datetime import datetime
+        data = request.get_json()
+        if not data or 'classifications' not in data:
+            return jsonify({'error': 'No data'}), 400
+        inserted = 0
+        skipped = 0
+        for row in data['classifications']:
+            existing = Classification.query.filter_by(address=row['address']).first()
+            if existing:
+                skipped += 1
+                continue
+            c = Classification(
+                address=row['address'],
+                classification=row['classification'],
+                confidence=row['confidence'],
+                features=row.get('features'),
+            )
+            if row.get('created_at'):
+                try:
+                    c.created_at = datetime.fromisoformat(row['created_at'])
+                except Exception:
+                    pass
+            db.session.add(c)
+            inserted += 1
+        db.session.commit()
+        return jsonify({'inserted': inserted, 'skipped': skipped})
+
     # Create database tables and seed default user
     with app.app_context():
         db.create_all()
