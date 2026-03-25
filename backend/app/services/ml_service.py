@@ -44,7 +44,8 @@ class MLService:
             # Load the model without compiling first to avoid optimizer issues
             self.model = tf.keras.models.load_model(
                 model_path,
-                compile=False
+                compile=False,
+                safe_mode=False
             )
             
             # Recompile with legacy optimizer for compatibility
@@ -131,7 +132,7 @@ class MLService:
                         if os.path.exists(model_path):
                             try:
                                 logger.info(f"Loading fallback model from {model_path}")
-                                model = tf.keras.models.load_model(model_path, compile=False)
+                                model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
                                 model.compile(
                                     optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
                                     loss='sparse_categorical_crossentropy',
@@ -159,7 +160,7 @@ class MLService:
                 if model is None and os.path.exists(model_path_keras):
                     try:
                         logger.info(f"Loading keras model from {model_path_keras}")
-                        model = tf.keras.models.load_model(model_path_keras, compile=False)
+                        model = tf.keras.models.load_model(model_path_keras, compile=False, safe_mode=False)
                         model.compile(
                             optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
                             loss='sparse_categorical_crossentropy',
@@ -190,7 +191,7 @@ class MLService:
                 if os.path.exists(model_path):
                     try:
                         logger.info(f"Loading model from {model_path}")
-                        model = tf.keras.models.load_model(model_path, compile=False)
+                        model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
                         model.compile(
                             optimizer=tf.keras.optimizers.legacy.Adam(learning_rate=0.001),
                             loss='sparse_categorical_crossentropy',

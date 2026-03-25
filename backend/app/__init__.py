@@ -61,7 +61,7 @@ def create_app():
         scaler_loaded = False
         try:
             import tensorflow as tf
-            model = tf.keras.models.load_model(model_path, compile=False)
+            model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
             model_loaded = True
         except Exception as e:
             errors.append(f"Model load error: {str(e)}")
