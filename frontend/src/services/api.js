@@ -150,8 +150,8 @@ export const apiService = {
   },
 
   /**
-   * Get address count over time (last 30 days)
-   * @returns {Promise<Object>} Date-to-count mapping
+   * Get address count over time (last 12 months)
+   * @returns {Promise<Object>} Month-to-count mapping
    */
   async getAddressCountOverTime() {
     return this.get('/address-count-over-time');

@@ -423,33 +423,46 @@ def get_transaction_graph(address):
 @api.route('/address-count-over-time', methods=['GET'])
 def address_count_over_time():
     """
-    Returns the number of addresses analyzed per day for the last 30 days.
+    Returns the number of addresses analyzed per month for the last 12 months.
     """
     try:
-        from sqlalchemy import func
+        from sqlalchemy import func, extract
         from datetime import datetime, timedelta
-        days = 30
-        today = datetime.utcnow().date()
-        start_date = today - timedelta(days=days-1)
+        import calendar
 
-        # Query: count per day
+        today = datetime.utcnow().date()
+        start_date = today.replace(day=1) - timedelta(days=365 - 31)
+        start_date = start_date.replace(day=1)
+
         results = db.session.query(
-            func.date(Classification.created_at).label('date'),
+            extract('year', Classification.created_at).label('year'),
+            extract('month', Classification.created_at).label('month'),
             func.count(Classification.id)
         ).filter(
             Classification.created_at >= start_date
         ).group_by(
-            func.date(Classification.created_at)
+            extract('year', Classification.created_at),
+            extract('month', Classification.created_at)
         ).order_by(
-            func.date(Classification.created_at)
+            extract('year', Classification.created_at),
+            extract('month', Classification.created_at)
         ).all()
 
-        # Build a dict with all days in range, fill 0 if missing
-        date_counts = {str((start_date + timedelta(days=i))): 0 for i in range(days)}
-        for date, count in results:
-            date_counts[str(date)] = count
+        result_map = {}
+        for year, month, count in results:
+            result_map[(int(year), int(month))] = count
 
-        return jsonify(date_counts)
+        month_counts = {}
+        current = start_date
+        while current <= today:
+            label = f"{calendar.month_abbr[current.month]} {current.year}"
+            month_counts[label] = result_map.get((current.year, current.month), 0)
+            if current.month == 12:
+                current = current.replace(year=current.year + 1, month=1)
+            else:
+                current = current.replace(month=current.month + 1)
+
+        return jsonify(month_counts)
     except Exception as e:
         logger.error(f"Error fetching address count over time: {str(e)}")
         return jsonify({'error': 'Failed to fetch address count over time'}), 500 

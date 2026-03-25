@@ -48,7 +48,7 @@
           scales: {
             x: {
               grid: { display: false },
-              ticks: { color: '#b0b8c1', font: { size: 11, weight: 'bold' }, maxTicksLimit: 7 }
+              ticks: { color: '#b0b8c1', font: { size: 11, weight: 'bold' }, maxTicksLimit: 12 }
             },
             y: {
               beginAtZero: true,
