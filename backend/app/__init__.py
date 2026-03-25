@@ -55,7 +55,7 @@ def create_app():
     @app.route('/debug/model')
     def debug_model():
         errors = []
-        model_path = os.path.join(os.environ.get('PROJECT_ROOT', '/app'), 'ml-models', 'without_structural_features', 'bitcoin_classifier.keras')
+        model_path = os.path.join(os.environ.get('PROJECT_ROOT', '/app'), 'ml-models', 'without_structural_features', 'bitcoin_classifier.h5')
         scaler_path = os.path.join(os.environ.get('PROJECT_ROOT', '/app'), 'ml-models', 'without_structural_features', 'scaler.json')
         model_loaded = False
         scaler_loaded = False

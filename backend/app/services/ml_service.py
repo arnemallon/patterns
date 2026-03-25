@@ -184,8 +184,10 @@ class MLService:
                         logger.error(f"Failed to load json scaler: {e}")
                         scaler = None
             else:
-                # For non-structural features, use keras/json files
-                model_path = os.path.join(model_dir, 'bitcoin_classifier.keras')
+                # For non-structural features, prefer .h5 for cross-version compatibility
+                model_path_h5 = os.path.join(model_dir, 'bitcoin_classifier.h5')
+                model_path_keras = os.path.join(model_dir, 'bitcoin_classifier.keras')
+                model_path = model_path_h5 if os.path.exists(model_path_h5) else model_path_keras
                 scaler_path = os.path.join(model_dir, 'scaler.json')
                 
                 if os.path.exists(model_path):
