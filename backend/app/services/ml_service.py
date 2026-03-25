@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Dict, List
 import os
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../'))
+PROJECT_ROOT = os.environ.get('PROJECT_ROOT', os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 from sklearn.preprocessing import StandardScaler
 import csv
 import joblib
@@ -24,7 +24,11 @@ class MLService:
         ]
         self.with_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/with_structural_features')
         self.without_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/without_structural_features')
-        self.structural_address_csv = os.path.join(PROJECT_ROOT, 'backend', 'results', 'concatenated_features_with_account.csv')
+        self.structural_address_csv = os.path.join(
+            PROJECT_ROOT, 'backend', 'results', 'concatenated_features_with_account.csv'
+        ) if os.path.exists(os.path.join(PROJECT_ROOT, 'backend')) else os.path.join(
+            PROJECT_ROOT, 'results', 'concatenated_features_with_account.csv'
+        )
         self.structural_addresses = None  # Will be loaded as a set
         self.models = {}
         self.scalers = {}
