@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { navigate } from 'svelte-routing';
   import { apiService, alertsApi } from '../services/api.js';
 
   let alerts = [];
@@ -14,10 +15,31 @@
   let loading = true;
   let creating = false;
   let error = null;
+  let modalError = null;
+  let deleteTarget = null;
+  let deleting = false;
 
   onMount(async () => {
     await loadAlerts();
   });
+
+  function openCreateAlertModal() {
+    modalError = null;
+    showCreateAlertModal = true;
+  }
+
+  function closeCreateAlertModal() {
+    if (creating) return;
+    showCreateAlertModal = false;
+    modalError = null;
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') {
+      if (showCreateAlertModal) closeCreateAlertModal();
+      if (deleteTarget) deleteTarget = null;
+    }
+  }
 
   async function loadAlerts() {
     try {
@@ -39,27 +61,27 @@
   }
 
   async function handleCreateAlert() {
-    // Basic validation
+    // Basic validation (errors are shown inside the modal)
     if (!newAlertAddress.trim()) {
-      error = 'Bitcoin address is required';
+      modalError = 'Bitcoin address is required';
+      return;
+    }
+    
+    // Basic Bitcoin address validation
+    if (!(newAlertAddress.startsWith('1') || newAlertAddress.startsWith('3') || newAlertAddress.startsWith('bc1'))) {
+      modalError = 'Please enter a valid Bitcoin address';
       return;
     }
     
     if (!newAlertEmail.trim()) {
-      error = 'Email address is required';
+      modalError = 'Email address is required';
       return;
     }
     
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(newAlertEmail.trim())) {
-      error = 'Please enter a valid email address';
-      return;
-    }
-    
-    // Basic Bitcoin address validation
-    if (!(newAlertAddress.startsWith('1') || newAlertAddress.startsWith('3') || newAlertAddress.startsWith('bc1'))) {
-      error = 'Please enter a valid Bitcoin address';
+      modalError = 'Please enter a valid email address';
       return;
     }
     
@@ -85,9 +107,10 @@
       newAlertType = 'new_transaction';
       newAlertThreshold = 10; // Reset to 10%
       newAlertEmail = '';
+      modalError = null;
       error = null; // Clear any previous errors
     } catch (err) {
-      error = err.message || 'Failed to create alert';
+      modalError = err.details || err.message || 'Failed to create alert';
     } finally {
       creating = false;
     }
@@ -108,16 +131,24 @@
     }
   }
 
-  async function handleDeleteAlert(alertId) {
-    if (confirm('Are you sure you want to delete this alert?')) {
-      try {
-        await alertsApi.remove(alertId);
-        alerts = alerts.filter(alert => alert.id !== alertId);
-        activeAlerts = alerts.filter(alert => alert.status === 'active');
-        triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
-      } catch (err) {
-        error = err.message || 'Failed to delete alert';
-      }
+  function handleDeleteAlert(alertId) {
+    deleteTarget = alerts.find(alert => alert.id === alertId) || null;
+  }
+
+  async function confirmDeleteAlert() {
+    if (!deleteTarget) return;
+    try {
+      deleting = true;
+      await alertsApi.remove(deleteTarget.id);
+      alerts = alerts.filter(alert => alert.id !== deleteTarget.id);
+      activeAlerts = alerts.filter(alert => alert.status === 'active');
+      triggeredAlerts = alerts.filter(alert => (alert.trigger_count || 0) > 0);
+      deleteTarget = null;
+    } catch (err) {
+      error = err.message || 'Failed to delete alert';
+      deleteTarget = null;
+    } finally {
+      deleting = false;
     }
   }
 
@@ -151,12 +182,14 @@
   }
 
   function handleAddressClick(address) {
-    window.location.href = `/analysis?address=${address}`;
+    navigate(`/analysis?address=${encodeURIComponent(address)}`);
   }
 
-  // Reactive statement to update threshold slider background
-  $: thresholdGradient = `linear-gradient(to right, #e9ecef 0%, #e9ecef ${newAlertThreshold}%, rgb(0, 136, 255) ${newAlertThreshold}%, rgb(0, 136, 255) 100%)`;
+  // Threshold slider: accent-colored fill up to the thumb, theme-aware track after it
+  $: thresholdGradient = `linear-gradient(to right, var(--accent-color) 0%, var(--accent-color) ${newAlertThreshold}%, var(--background-tertiary) ${newAlertThreshold}%, var(--background-tertiary) 100%)`;
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <div class="alerts" in:fly={{ y: 20, duration: 500 }}>
   <!-- Alerts Overview -->
@@ -272,7 +305,7 @@
   <div class="alerts-section">
     <div class="section-header">
       <h2>Active Alerts ({activeAlerts.length})</h2>
-      <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
+      <button class="btn btn-primary" on:click={openCreateAlertModal}>
         Create Alert
       </button>
     </div>
@@ -338,7 +371,7 @@
       <div class="empty-state">
         <h4>No active alerts</h4>
         <p>Create your first alert to start monitoring Bitcoin addresses for suspicious activity.</p>
-        <button class="btn btn-primary" on:click={() => showCreateAlertModal = true}>
+        <button class="btn btn-primary" on:click={openCreateAlertModal}>
           Create First Alert
         </button>
       </div>
@@ -347,62 +380,104 @@
 
   <!-- Create Alert Modal -->
   {#if showCreateAlertModal}
-    <div class="modal-overlay" in:fade={{ duration: 200 }}>
-      <div class="modal" in:fly={{ y: 20, duration: 300 }}>
+    <div class="modal-overlay" in:fade={{ duration: 200 }} on:click|self={closeCreateAlertModal}>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="create-alert-title" in:fly={{ y: 20, duration: 300 }}>
         <div class="modal-header">
-          <h3>Create New Alert</h3>
-          <button class="modal-close" on:click={() => showCreateAlertModal = false}>×</button>
+          <h3 id="create-alert-title">Create New Alert</h3>
+          <button class="modal-close" on:click={closeCreateAlertModal} aria-label="Close">×</button>
         </div>
-        <div class="modal-content">
-          <div class="form-group">
-            <label for="alert-address">Bitcoin Address</label>
-            <input 
-              id="alert-address" 
-              type="text" 
-              bind:value={newAlertAddress}
-              placeholder="Enter Bitcoin address to monitor"
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="alert-type">Alert Type</label>
-            <select id="alert-type" bind:value={newAlertType}>
-              <option value="new_transaction">New Transaction</option>
-              <option value="high_risk_transaction">High Risk Transaction</option>
-              <option value="large_transaction">Large Transaction</option>
-              <option value="suspicious_pattern">Suspicious Pattern</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="alert-threshold">Risk Threshold</label>
-            <div class="threshold-container">
+        <form on:submit|preventDefault={handleCreateAlert}>
+          <div class="modal-content">
+            {#if modalError}
+              <div class="modal-error" in:fade={{ duration: 150 }}>
+                {modalError}
+              </div>
+            {/if}
+
+            <div class="form-group">
+              <label for="alert-address">Bitcoin Address</label>
               <input 
-                id="alert-threshold" 
-                type="range" 
-                min="0" 
-                max="100" 
-                bind:value={newAlertThreshold}
-                style="background: {thresholdGradient}"
+                id="alert-address" 
+                type="text" 
+                bind:value={newAlertAddress}
+                placeholder="Enter Bitcoin address to monitor"
+                spellcheck="false"
+                autocomplete="off"
+                disabled={creating}
               />
-              <span class="threshold-value">{newAlertThreshold}%</span>
+            </div>
+            
+            <div class="form-group">
+              <label for="alert-type">Alert Type</label>
+              <select id="alert-type" bind:value={newAlertType} disabled={creating}>
+                <option value="new_transaction">New Transaction</option>
+                <option value="high_risk_transaction">High Risk Transaction</option>
+                <option value="large_transaction">Large Transaction</option>
+                <option value="suspicious_pattern">Suspicious Pattern</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="alert-threshold">Risk Threshold</label>
+              <div class="threshold-container">
+                <input 
+                  id="alert-threshold" 
+                  type="range" 
+                  min="0" 
+                  max="100" 
+                  bind:value={newAlertThreshold}
+                  style="background: {thresholdGradient}"
+                  disabled={creating}
+                />
+                <span class="threshold-value">{newAlertThreshold}%</span>
+              </div>
+              <p class="form-hint">You will be notified when the classification confidence for suspicious activity exceeds this threshold.</p>
+            </div>
+            
+            <div class="form-group">
+              <label for="alert-email">Notification Email</label>
+              <input 
+                id="alert-email" 
+                type="email" 
+                bind:value={newAlertEmail}
+                placeholder="Enter email for notifications"
+                disabled={creating}
+              />
             </div>
           </div>
-          
-          <div class="form-group">
-            <label for="alert-email">Notification Email</label>
-            <input 
-              id="alert-email" 
-              type="email" 
-              bind:value={newAlertEmail}
-              placeholder="Enter email for notifications"
-            />
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" on:click={closeCreateAlertModal} disabled={creating}>Cancel</button>
+            <button type="submit" class="btn btn-primary" disabled={creating}>
+              {#if creating}<span class="btn-spinner"></span>{/if}
+              {creating ? 'Creating...' : 'Create Alert'}
+            </button>
           </div>
+        </form>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Delete Confirmation Modal -->
+  {#if deleteTarget}
+    <div class="modal-overlay" in:fade={{ duration: 200 }} on:click|self={() => !deleting && (deleteTarget = null)}>
+      <div class="modal modal-small" role="dialog" aria-modal="true" aria-labelledby="delete-alert-title" in:fly={{ y: 20, duration: 300 }}>
+        <div class="modal-header">
+          <h3 id="delete-alert-title">Delete Alert</h3>
+          <button class="modal-close" on:click={() => deleteTarget = null} aria-label="Close" disabled={deleting}>×</button>
+        </div>
+        <div class="modal-content">
+          <p class="delete-question">Are you sure you want to delete this alert?</p>
+          <div class="delete-summary">
+            <code class="delete-address">{deleteTarget.address}</code>
+            <span class="delete-meta">{getAlertTypeLabel(deleteTarget.type)} · {(deleteTarget.threshold * 100).toFixed(0)}% threshold</span>
+          </div>
+          <p class="delete-note">This action cannot be undone.</p>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" on:click={() => showCreateAlertModal = false} disabled={creating}>Cancel</button>
-          <button class="btn btn-primary" on:click={handleCreateAlert} disabled={creating}>
-            {creating ? 'Creating...' : 'Create Alert'}
+          <button class="btn btn-secondary" on:click={() => deleteTarget = null} disabled={deleting}>Cancel</button>
+          <button class="btn btn-danger" on:click={confirmDeleteAlert} disabled={deleting}>
+            {#if deleting}<span class="btn-spinner"></span>{/if}
+            {deleting ? 'Deleting...' : 'Delete Alert'}
           </button>
         </div>
       </div>
@@ -478,10 +553,13 @@
   .table-container {
     width: 100%;
     background: var(--background-primary);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .alerts-table {
     width: 100%;
+    min-width: 640px;
     border-collapse: collapse;
     font-size: var(--font-size-sm);
     background: var(--background-primary);
@@ -515,10 +593,8 @@
     transition: all 0.2s;
   }
 
-  .alerts-table tr:hover {
-    background-color: #f8f9fa;
-    transform: translateX(4px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  .alerts-table tr:hover td {
+    background-color: var(--background-tertiary);
   }
 
   .clickable-address {
@@ -630,10 +706,10 @@
   }
 
   .error-message {
-    background: #f8d7da;
-    color: #721c24;
+    background: color-mix(in srgb, var(--error-color) 12%, var(--background-primary));
+    color: var(--error-color);
     padding: var(--spacing-md);
-    border: 1px solid #f5c6cb;
+    border: 1px solid color-mix(in srgb, var(--error-color) 40%, transparent);
     border-radius: var(--border-radius-md);
     margin-bottom: var(--spacing-lg);
   }
@@ -825,10 +901,90 @@
 
   .threshold-value {
     font-weight: 600;
-    color: rgb(0, 136, 255);
+    color: var(--accent-color);
     min-width: 3rem;
     text-align: right;
     font-size: 0.9rem;
+  }
+
+  .form-hint {
+    margin: var(--spacing-xs) 0 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .modal-error {
+    background: color-mix(in srgb, var(--error-color) 12%, var(--background-primary));
+    color: var(--error-color);
+    border: 1px solid color-mix(in srgb, var(--error-color) 40%, transparent);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    font-size: 0.9rem;
+  }
+
+  .modal-small {
+    max-width: 420px;
+  }
+
+  .btn-danger {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(0.9);
+  }
+
+  .btn-danger:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  .btn-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 0.4rem;
+  }
+
+  .delete-question {
+    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-primary);
+  }
+
+  .delete-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .delete-address {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+
+  .delete-meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .delete-note {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
   }
 
   @media (max-width: 768px) {

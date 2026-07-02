@@ -7,15 +7,24 @@
   export let data = {};
   let canvasEl;
 
+  // Sort the "Mon YYYY" labels chronologically, since JSON object key order
+  // is not guaranteed to be preserved by the server
+  function sortedEntries(obj) {
+    return Object.entries(obj).sort(
+      ([a], [b]) => new Date(`1 ${a}`) - new Date(`1 ${b}`)
+    );
+  }
+
   onMount(() => {
     if (data && Object.keys(data).length > 0) {
+      const entries = sortedEntries(data);
       new Chart(canvasEl, {
         type: 'line',
         data: {
-          labels: Object.keys(data),
+          labels: entries.map(([label]) => label),
           datasets: [{
             label: 'Addresses Analyzed',
-            data: Object.values(data),
+            data: entries.map(([, value]) => value),
             fill: false,
             borderColor: 'rgba(59, 130, 246, 1)',
             backgroundColor: 'rgba(59, 130, 246, 0.2)',

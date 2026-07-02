@@ -217,8 +217,10 @@ def add_address_to_case(case_id):
                 feature_service = FeatureService()
                 ml_service = MLService()
                 
-                # Extract features and classify
-                features = feature_service.extract_features(data['address'])
+                # Extract features and classify (hybrid pipeline)
+                features = ml_service.get_structural_features(data['address'])
+                if features is None:
+                    features = feature_service.extract_features(data['address'])
                 prediction_result = ml_service.predict(features, address=data['address'])
                 
                 # Create classification record with current user
@@ -331,7 +333,9 @@ def add_addresses_bulk_to_case(case_id):
                     feature_service = FeatureService()
                     ml_service = MLService()
                     
-                    features = feature_service.extract_features(address)
+                    features = ml_service.get_structural_features(address)
+                    if features is None:
+                        features = feature_service.extract_features(address)
                     prediction_result = ml_service.predict(features, address=address)
                     
                     classification = Classification(
@@ -463,7 +467,9 @@ def refresh_address_classification(case_id, address_id):
                 feature_service = FeatureService()
                 ml_service = MLService()
                 
-                features = feature_service.extract_features(address.address)
+                features = ml_service.get_structural_features(address.address)
+                if features is None:
+                    features = feature_service.extract_features(address.address)
                 prediction_result = ml_service.predict(features, address=address.address)
                 
                 classification = Classification(

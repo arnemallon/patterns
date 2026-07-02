@@ -476,6 +476,12 @@
     background: var(--background-primary);
     margin: 0;
     padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .results-table {
+    min-width: 600px;
   }
   
   .category-col {
@@ -619,8 +625,15 @@
     color: white;
   }
   @media (max-width: 768px) {
+    .input-section {
+      padding: var(--spacing-lg);
+    }
     .input-methods {
       flex-direction: column;
+    }
+    .input-method {
+      min-width: 0;
+      flex-basis: auto;
     }
     .results-header {
       flex-direction: column;
@@ -629,9 +642,11 @@
     }
     .results-summary {
       justify-content: center;
+      flex-wrap: wrap;
     }
     .analysis-actions {
       flex-direction: column;
+      align-items: stretch;
     }
   }
   .btn-primary,

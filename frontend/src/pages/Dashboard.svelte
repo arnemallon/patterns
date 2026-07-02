@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { navigate } from 'svelte-routing';
   import { apiService, alertsApi } from '../services/api.js';
   import CategoryChart from '../components/CategoryChart.svelte';
   import LineChart from '../components/LineChart.svelte';
@@ -162,8 +163,9 @@
   }
 
   function handleAddressClick(address) {
-    // Navigate to analysis page with the address
-    window.location.href = `/analysis?address=${address}`;
+    // Client-side navigation to the analysis page (a full page load would
+    // 404 on static hosts without SPA rewrites)
+    navigate(`/analysis?address=${encodeURIComponent(address)}`);
   }
 
   async function refreshAlerts() {
@@ -200,14 +202,14 @@
         <div class="stat-card">
           <div class="stat-content">
             <span class="stat-number">{stats.totalAddresses.toLocaleString()}</span>
-            <span class="stat-desc">Total Addresses<br/>Analyzed</span>
+            <span class="stat-desc">Total Addresses <br/>Analyzed</span>
           </div>
         </div>
         
         <div class="stat-card">
           <div class="stat-content">
             <span class="stat-number">{stats.suspiciousAddresses}</span>
-            <span class="stat-desc">Suspicious<br/>Addresses</span>
+            <span class="stat-desc">Suspicious <br/>Addresses</span>
           </div>
         </div>
         
@@ -384,7 +386,7 @@
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-sm) var(--spacing-xl);
     transition: border-color var(--transition-fast);
-    min-width: 180px;
+    min-width: 0;
     max-width: none;
     width: 100%;
     min-height: 80px;
@@ -653,5 +655,40 @@
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem 0 0.5rem 0;
+  }
+
+  /* Responsive layout */
+  @media (max-width: 1100px) {
+    .dashboard {
+      min-height: 0;
+      overflow: visible;
+    }
+
+    .dashboard-columns {
+      flex-direction: column;
+      overflow: visible;
+    }
+
+    .right-col {
+      flex: 1 1 auto;
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      gap: var(--spacing-md);
+    }
+  }
+
+  @media (max-width: 700px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stat-desc {
+      white-space: normal;
+    }
+
+    .stat-desc br {
+      display: none;
+    }
   }
 </style> 

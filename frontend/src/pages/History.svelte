@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { fly, fade } from 'svelte/transition';
+  import { navigate } from 'svelte-routing';
   import ClassificationHistory from '../components/ClassificationHistory.svelte';
 
   let searchTerm = '';
@@ -9,8 +10,9 @@
   let searchTimeout;
 
   function handleReclassify(event) {
-    // Navigate to analysis page with the address
-    window.location.href = `/analysis?address=${event.detail}`;
+    // Client-side navigation to the analysis page (a full page load would
+    // 404 on static hosts without SPA rewrites)
+    navigate(`/analysis?address=${encodeURIComponent(event.detail)}`);
   }
 
   function handleSearchInput(event) {
@@ -241,7 +243,7 @@
 
   .filters-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
     gap: var(--spacing-lg);
   }
 

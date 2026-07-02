@@ -2,26 +2,54 @@ import tensorflow as tf
 import numpy as np
 import json
 import logging
-from typing import Dict, List
+import sys
+from typing import Dict, Optional
 import os
-PROJECT_ROOT = os.environ.get('PROJECT_ROOT', os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-from sklearn.preprocessing import StandardScaler
 import csv
+
+# numpy 2.x renamed numpy.core to numpy._core; the structural model was
+# pickled under numpy 2, so alias the old module paths when running under
+# numpy 1.x to keep the pickle loadable.
+if not hasattr(np, '_core'):
+    import numpy.core as _np_core
+    sys.modules.setdefault('numpy._core', _np_core)
+    for _sub in ('multiarray', 'umath', 'numeric', '_multiarray_umath'):
+        _mod = getattr(_np_core, _sub, None)
+        if _mod is not None:
+            sys.modules.setdefault(f'numpy._core.{_sub}', _mod)
+
 import joblib
+from sklearn.preprocessing import StandardScaler
+
+PROJECT_ROOT = os.environ.get('PROJECT_ROOT', os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 logger = logging.getLogger(__name__)
 
+
 class MLService:
+    """
+    Hybrid classification pipeline as described in the thesis:
+
+    - Addresses contained in our reconstructed transaction graph (the
+      structural feature matrix, backend/results/concatenated_features_with_account.csv)
+      are classified with the model trained on the top-8 selected BABD-13
+      features (S5, S6, S1-1, ...), using the precomputed feature values.
+    - All other addresses are classified with the non-structural model, whose
+      features are computed on demand from BlockCypher data using the BABD-13
+      formulas (see FeatureService).
+    """
+
+    # Feature order of the structural model (top-8 selection from the thesis,
+    # order verified against og_scaler.joblib and the structural CSV)
+    STRUCTURAL_FEATURES = ['S5', 'S6', 'S1-1', 'PTIa41-2', 'CI2a32-2', 'PTIa21', 'PAIa13', 'CI3a12-3']
+
+    # Feature order of the non-structural model (see
+    # backend/notebooks/non_strucural_training.ipynb and scaler.json)
+    NON_STRUCTURAL_FEATURES = ['S2-1', 'PTIa41-2', 'PTIa41-3', 'S4', 'CI2a32-2', 'PTIa21', 'CI3a12-3', 'PAIa13']
+
     def __init__(self, model_path: str = None, scaler_path: str = None):
-        """
-        Initialize ML service with trained model and scaler
-        """
         self.model = None
         self.scaler = None
-        self.feature_names = [
-            'S5', 'S6', 'S1-1', 'PTIa41-2', 'CI2a32-2', 'PTIa21', 
-            'PAIa13', 'CI3a12-3'
-        ]
         self.with_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/with_structural_features')
         self.without_structural_dir = os.path.join(PROJECT_ROOT, 'ml-models/without_structural_features')
         self.structural_address_csv = os.path.join(
@@ -29,254 +57,190 @@ class MLService:
         ) if os.path.exists(os.path.join(PROJECT_ROOT, 'backend')) else os.path.join(
             PROJECT_ROOT, 'results', 'concatenated_features_with_account.csv'
         )
-        self.structural_addresses = None  # Will be loaded as a set
+        self.structural_features_by_address = None  # address -> feature dict, loaded lazily
         self.models = {}
         self.scalers = {}
-        # Load default model and scaler if paths provided
+        # Load default model and scaler if paths provided (legacy behavior,
+        # used by the health check)
         if model_path and os.path.exists(model_path):
             self.load_model(model_path)
         if scaler_path and os.path.exists(scaler_path):
             self.load_scaler(scaler_path)
-    
+
     def load_model(self, model_path: str):
-        """Load the trained TensorFlow model"""
+        """Load a TensorFlow model (legacy default model slot)"""
         try:
-            # Load the model without compiling first to avoid optimizer issues
-            self.model = tf.keras.models.load_model(
-                model_path,
-                compile=False,
-                safe_mode=False
-            )
-            
-            # Recompile with legacy optimizer for compatibility
-            self.model.compile(
-                optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-                loss='sparse_categorical_crossentropy',
-                metrics=['accuracy']
-            )
-            
+            self.model = self._load_keras_model(model_path)
             logger.info(f"Model loaded successfully from {model_path}")
         except Exception as e:
             logger.error(f"Error loading model: {e}")
             raise
-    
-    def load_scaler(self, scaler_path: str):
-        """Load the StandardScaler's parameters from a JSON file"""
-        try:
-            with open(scaler_path, 'r') as f:
-                scaler_data = json.load(f)
-            
-            self.scaler = StandardScaler()
-            self.scaler.mean_ = np.array(scaler_data['mean'])
-            self.scaler.scale_ = np.array(scaler_data['scale'])
 
+    def load_scaler(self, scaler_path: str):
+        """Load StandardScaler parameters from a JSON file (legacy default scaler slot)"""
+        try:
+            self.scaler = self._load_json_scaler(scaler_path)
             logger.info(f"Scaler loaded successfully from {scaler_path}")
         except Exception as e:
             logger.error(f"Error loading scaler: {e}")
             raise
-    
-    def _load_structural_addresses(self):
-        """Load addresses from the structural features CSV file"""
-        if self.structural_addresses is not None:
+
+    @staticmethod
+    def _load_keras_model(model_path: str):
+        model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+            loss='sparse_categorical_crossentropy',
+            metrics=['accuracy']
+        )
+        return model
+
+    @staticmethod
+    def _load_json_scaler(scaler_path: str) -> StandardScaler:
+        with open(scaler_path, 'r') as f:
+            scaler_data = json.load(f)
+        scaler = StandardScaler()
+        scaler.mean_ = np.array(scaler_data['mean'])
+        scaler.scale_ = np.array(scaler_data['scale'])
+        return scaler
+
+    def _load_structural_features(self):
+        """Load the precomputed structural feature matrix (address -> top-8 features)."""
+        if self.structural_features_by_address is not None:
             return
-        
-        self.structural_addresses = set()
+
+        self.structural_features_by_address = {}
         try:
-            if os.path.exists(self.structural_address_csv):
-                with open(self.structural_address_csv, 'r') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if 'account' in row:
-                            self.structural_addresses.add(row['account'].strip())
-                logger.info(f"Loaded {len(self.structural_addresses)} addresses from structural CSV")
-            else:
+            if not os.path.exists(self.structural_address_csv):
                 logger.warning(f"Structural CSV file not found: {self.structural_address_csv}")
-                self.structural_addresses = set()
+                return
+            with open(self.structural_address_csv, 'r') as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    account = (row.get('account') or '').strip()
+                    if not account:
+                        continue
+                    try:
+                        self.structural_features_by_address[account] = {
+                            name: round(float(row[name]), 8) for name in self.STRUCTURAL_FEATURES
+                        }
+                    except (KeyError, ValueError):
+                        continue
+            logger.info(
+                f"Loaded structural features for {len(self.structural_features_by_address)} addresses"
+            )
         except Exception as e:
-            logger.error(f"Failed to load structural addresses: {e}")
-            self.structural_addresses = set()
+            logger.error(f"Failed to load structural features: {e}")
+            self.structural_features_by_address = {}
+
+    def get_structural_features(self, address: str) -> Optional[Dict]:
+        """
+        Return the precomputed structural features for an address, or None if
+        the address is not part of our transaction graph or the structural
+        model is unavailable.
+        """
+        if not address:
+            return None
+        self._load_structural_features()
+        features = self.structural_features_by_address.get(address.strip())
+        if features is None:
+            return None
+
+        model, scaler = self._get_model_and_scaler(use_structural=True)
+        if model is None:
+            logger.warning("Structural model unavailable, falling back to the non-structural pipeline")
+            return None
+
+        logger.info(f"Address {address} found in the transaction graph - using structural model")
+        return dict(features)
 
     def _get_model_and_scaler(self, use_structural: bool):
-        """Get the appropriate model and scaler based on whether to use structural features"""
+        """Lazily load and cache the model/scaler pair for a pipeline."""
         key = 'with' if use_structural else 'without'
-        
-        if key not in self.models or key not in self.scalers:
-            model_dir = self.with_structural_dir if use_structural else self.without_structural_dir
+
+        if key not in self.models:
             model = None
             scaler = None
-            
-            # Try to load model and scaler
+
             if use_structural:
-                # For structural features, try .joblib files first, then .keras
-                model_path_joblib = os.path.join(model_dir, 'og_bitcoin_classifier.joblib')
-                scaler_path_joblib = os.path.join(model_dir, 'og_scaler.joblib')
-                model_path_keras = os.path.join(model_dir, 'bitcoin_classifier.keras')
-                scaler_path_json = os.path.join(model_dir, 'scaler.json')
-                
-                # Try joblib files first
-                if os.path.exists(model_path_joblib) and os.path.exists(scaler_path_joblib):
-                    try:
-                        logger.info(f"Loading joblib model from {model_path_joblib}")
-                        model = joblib.load(model_path_joblib)
-                        logger.info(f"Loading joblib scaler from {scaler_path_joblib}")
-                        scaler = joblib.load(scaler_path_joblib)
-                        logger.info("Successfully loaded joblib model and scaler")
-                    except Exception as e:
-                        logger.error(f"Failed to load joblib files: {e}")
-                        logger.info("Falling back to non-structural model due to joblib compatibility issues")
-                        # Fall back to non-structural model
-                        fallback_dir = self.without_structural_dir
-                        model_path = os.path.join(fallback_dir, 'bitcoin_classifier.keras')
-                        scaler_path = os.path.join(fallback_dir, 'scaler.json')
-                        
-                        if os.path.exists(model_path):
-                            try:
-                                logger.info(f"Loading fallback model from {model_path}")
-                                model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
-                                model.compile(
-                                    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-                                    loss='sparse_categorical_crossentropy',
-                                    metrics=['accuracy']
-                                )
-                                logger.info("Fallback model loaded successfully")
-                            except Exception as e:
-                                logger.error(f"Failed to load fallback model: {e}")
-                                model = None
-                        
-                        if os.path.exists(scaler_path):
-                            try:
-                                logger.info(f"Loading fallback scaler from {scaler_path}")
-                                with open(scaler_path, 'r') as f:
-                                    scaler_data = json.load(f)
-                                scaler = StandardScaler()
-                                scaler.mean_ = np.array(scaler_data['mean'])
-                                scaler.scale_ = np.array(scaler_data['scale'])
-                                logger.info("Fallback scaler loaded successfully")
-                            except Exception as e:
-                                logger.error(f"Failed to load fallback scaler: {e}")
-                                scaler = None
-                
-                # Fallback to keras/json files if joblib failed
-                if model is None and os.path.exists(model_path_keras):
-                    try:
-                        logger.info(f"Loading keras model from {model_path_keras}")
-                        model = tf.keras.models.load_model(model_path_keras, compile=False, safe_mode=False)
-                        model.compile(
-                            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-                            loss='sparse_categorical_crossentropy',
-                            metrics=['accuracy']
-                        )
-                        logger.info(f"Keras model loaded successfully")
-                    except Exception as e:
-                        logger.error(f"Failed to load keras model: {e}")
-                        model = None
-                
-                if scaler is None and os.path.exists(scaler_path_json):
-                    try:
-                        logger.info(f"Loading json scaler from {scaler_path_json}")
-                        with open(scaler_path_json, 'r') as f:
-                            scaler_data = json.load(f)
-                        scaler = StandardScaler()
-                        scaler.mean_ = np.array(scaler_data['mean'])
-                        scaler.scale_ = np.array(scaler_data['scale'])
-                        logger.info("JSON scaler loaded successfully")
-                    except Exception as e:
-                        logger.error(f"Failed to load json scaler: {e}")
-                        scaler = None
+                model_path = os.path.join(self.with_structural_dir, 'og_bitcoin_classifier.joblib')
+                scaler_path = os.path.join(self.with_structural_dir, 'og_scaler.joblib')
+                try:
+                    if os.path.exists(model_path) and os.path.exists(scaler_path):
+                        logger.info(f"Loading structural model from {model_path}")
+                        model = joblib.load(model_path)
+                        scaler = joblib.load(scaler_path)
+                    else:
+                        logger.warning(f"Structural model files missing in {self.with_structural_dir}")
+                except Exception as e:
+                    logger.error(f"Failed to load structural model: {e}")
+                    model, scaler = None, None
             else:
-                # For non-structural features, prefer .h5 for cross-version compatibility
-                model_path_h5 = os.path.join(model_dir, 'bitcoin_classifier.h5')
-                model_path_keras = os.path.join(model_dir, 'bitcoin_classifier.keras')
+                # Prefer .h5 for cross-version compatibility
+                model_path_h5 = os.path.join(self.without_structural_dir, 'bitcoin_classifier.h5')
+                model_path_keras = os.path.join(self.without_structural_dir, 'bitcoin_classifier.keras')
                 model_path = model_path_h5 if os.path.exists(model_path_h5) else model_path_keras
-                scaler_path = os.path.join(model_dir, 'scaler.json')
-                
-                if os.path.exists(model_path):
-                    try:
-                        logger.info(f"Loading model from {model_path}")
-                        model = tf.keras.models.load_model(model_path, compile=False, safe_mode=False)
-                        model.compile(
-                            optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
-                            loss='sparse_categorical_crossentropy',
-                            metrics=['accuracy']
-                        )
-                        logger.info(f"Model loaded successfully from {model_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to load model from {model_path}: {e}")
-                        model = None
-                else:
-                    logger.warning(f"Model file does not exist: {model_path}")
-                
-                if os.path.exists(scaler_path):
-                    try:
-                        logger.info(f"Loading scaler from {scaler_path}")
-                        with open(scaler_path, 'r') as f:
-                            scaler_data = json.load(f)
-                        scaler = StandardScaler()
-                        scaler.mean_ = np.array(scaler_data['mean'])
-                        scaler.scale_ = np.array(scaler_data['scale'])
-                        logger.info(f"Scaler loaded successfully from {scaler_path}")
-                    except Exception as e:
-                        logger.error(f"Failed to load scaler from {scaler_path}: {e}")
-                        scaler = None
-                else:
-                    logger.warning(f"Scaler file does not exist: {scaler_path}")
-            
+                scaler_path = os.path.join(self.without_structural_dir, 'scaler.json')
+                try:
+                    if os.path.exists(model_path):
+                        logger.info(f"Loading non-structural model from {model_path}")
+                        model = self._load_keras_model(model_path)
+                    else:
+                        logger.warning(f"Non-structural model file missing: {model_path}")
+                    if os.path.exists(scaler_path):
+                        scaler = self._load_json_scaler(scaler_path)
+                    else:
+                        logger.warning(f"Non-structural scaler file missing: {scaler_path}")
+                except Exception as e:
+                    logger.error(f"Failed to load non-structural model: {e}")
+                    model, scaler = None, None
+
             self.models[key] = model
             self.scalers[key] = scaler
-        
+
         return self.models[key], self.scalers[key]
 
     def predict(self, features: Dict, address: str = None) -> Dict:
         """
-        Make prediction using the correct model based on address presence in the structural CSV
+        Classify an address from its feature dict. The pipeline (structural vs.
+        non-structural) is determined by which feature set the dict contains.
         """
-        use_structural = False
-        if address:
-            self._load_structural_addresses()
-            if address.strip() in self.structural_addresses:
-                use_structural = True
-                logger.info(f"Address {address} found in structural CSV - using structural model")
-            else:
-                logger.info(f"Address {address} not found in structural CSV - using non-structural model")
-        
+        use_structural = set(self.STRUCTURAL_FEATURES).issubset(features.keys())
+        feature_names = self.STRUCTURAL_FEATURES if use_structural else self.NON_STRUCTURAL_FEATURES
+
         model, scaler = self._get_model_and_scaler(use_structural)
-        
+        if not model:
+            raise RuntimeError(
+                f"Required model for the {'structural' if use_structural else 'non-structural'} pipeline is missing."
+            )
+
         try:
-            # Convert features dict to array in correct order with proper data types
             feature_array = np.array([[
-                float(features.get(name, 0.0)) for name in self.feature_names
+                float(features.get(name, 0.0)) for name in feature_names
             ]], dtype=np.float64)
-            
-            # Scale features if scaler is available
+
             if scaler:
                 feature_array = scaler.transform(feature_array)
-            
-            # Make prediction
-            if not model:
-                raise RuntimeError(f"Required model for {'structural' if use_structural else 'non-structural'} features is missing.")
-            
-            # Handle different model types (joblib vs keras)
-            if hasattr(model, 'predict_proba'):  # joblib model (sklearn)
-                prediction = model.predict_proba(feature_array)
-                probabilities = prediction[0]
-                predicted_class = int(np.argmax(probabilities))
+
+            if hasattr(model, 'predict_proba'):  # sklearn model (structural)
+                probabilities = model.predict_proba(feature_array)[0]
+                # The random forest was trained after rare classes were
+                # dropped, so map the argmax index back to the class label.
+                predicted_class = int(model.classes_[int(np.argmax(probabilities))])
                 confidence = float(np.max(probabilities))
-                raw_output = prediction[0].tolist()
-            else:  # keras model
+                raw_output = probabilities.tolist()
+            else:  # keras model (non-structural), outputs logits for 13 classes
                 prediction = model.predict(feature_array, verbose=0)
-                # Apply softmax to get probabilities
-                probabilities = tf.nn.softmax(prediction[0])
-                # Get the predicted class index (0-12)
+                probabilities = tf.nn.softmax(prediction[0]).numpy()
                 predicted_class = int(np.argmax(probabilities))
-                # Get the confidence (probability of the predicted class) with high precision
                 confidence = float(np.max(probabilities))
                 raw_output = prediction[0].tolist()
-            
-            logger.info(f"Model raw output: {raw_output}")
-            logger.info(f"Model probabilities: {probabilities}")
-            logger.info(f"Predicted class: {predicted_class}")
-            logger.info(f"Confidence: {confidence}")
-            
+
+            logger.info(
+                f"Prediction ({'structural' if use_structural else 'non-structural'}) "
+                f"for {address or 'unknown address'}: class={predicted_class}, confidence={confidence:.4f}"
+            )
+
             return {
                 'prediction': predicted_class,
                 'confidence': round(confidence, 8),

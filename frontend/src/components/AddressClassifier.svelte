@@ -1,63 +1,80 @@
 <script>
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { apiService } from '../services/api.js';
-  import { fade, fly, scale } from 'svelte/transition';
+  import { fly, scale } from 'svelte/transition';
   import TransactionGraph from './TransactionGraph.svelte';
-  
+
   export let address = '';
+
+  let inputValue = '';
   let result = null;
   let loading = false;
   let error = null;
   let showGraph = false;
+  let lastClassifiedAddress = null;
 
   const dispatch = createEventDispatcher();
 
-  // Watch for changes to the address prop and automatically submit
-  $: if (address && address.trim()) {
-    console.log('Address changed in AddressClassifier:', address);
-    // Add a small delay to prevent rapid successive calls
-    setTimeout(() => {
-      if (address && address.trim()) {
-        console.log('Submitting address for classification:', address);
-    handleSubmit();
-      }
-    }, 100);
+  // Auto-classify when the address is set from outside (URL parameter,
+  // history click, graph node click) - not while the user is typing.
+  $: if (address !== inputValue) {
+    inputValue = address;
+    if (address && address.trim() && address.trim() !== lastClassifiedAddress) {
+      classify(address.trim());
+    }
   }
 
   const featureLabels = {
+    // Structural model (top-8 selected BABD-13 features)
+    'S5': 'Avg. Shortest Path Length',
+    'S6': 'Max. Graph Diameter',
+    'S1-1': 'Avg. In-Degree',
+    'PAIa13': 'Sent/Received Ratio',
+    'PTIa21': 'Lifecycle / Active Days',
+    'PTIa41-2': 'Min. Tx Interval (days)',
+    'CI2a32-2': 'Max. Inflow Rate (BTC/day)',
+    'CI3a12-3': 'Min. Daily In-Degree',
+    // Non-structural model
+    'S2-1': 'Max. In-Degree (Subgraph)',
+    'S4': 'Betweenness Centrality',
+    'PTIa41-3': 'Avg. Tx Interval (days)',
+    // Legacy feature names (older history entries)
     'PAIa11-1': 'Total Received',
     'PAIa11-2': 'Total Sent',
-    'PAIa13': 'Received/Sent Ratio',
-    'S2-1': 'Unique Senders (In-Degree)',
-    'S2-2': 'Unique Recipients (Out-Degree)',
-    'S2-3': 'Unique Counterparties',
-    'CI2a32-2': 'Max Input/Total Ratio',
-    'CI2a32-4': 'Max Output/Total Ratio'
+    'S2-2': 'Max. Out-Degree (Subgraph)',
+    'S2-3': 'Max. Total Degree (Subgraph)',
+    'CI2a32-4': 'Max. Outflow Rate (BTC/day)'
   };
-  
-  const integerFeatures = ['S2-1', 'S2-2', 'S2-3'];
-  
-  async function handleSubmit() {
-    if (!address.trim()) {
+
+  const integerFeatures = ['S2-1', 'S2-2', 'S2-3', 'S6', 'CI3a12-3'];
+
+  function handleSubmit() {
+    const trimmed = inputValue.trim();
+    if (!trimmed) {
       error = { message: 'Validation Error', details: 'Please enter a Bitcoin address.' };
       return;
     }
-    
+    address = trimmed;
+    classify(trimmed);
+  }
+
+  async function classify(addr) {
     loading = true;
     error = null;
     result = null;
-    
+    lastClassifiedAddress = addr;
+
     try {
-      result = await apiService.classifyAddress(address);
-      dispatch('classificationComplete');
+      result = await apiService.classifyAddress(addr);
+      dispatch('classificationComplete', result);
     } catch (err) {
-      console.error("Caught error in component:", err);
+      console.error('Caught error in component:', err);
       error = err;
     } finally {
       loading = false;
     }
   }
-  
+
   function getCategoryDescription(prediction) {
     const categories = [
       'Blackmail', 'Cyber-security Service', 'Darknet Market', 'Centralized Exchange',
@@ -65,7 +82,7 @@
       'Government Criminal Blacklist', 'Money Laundering', 'Ponzi Scheme',
       'Mining Pool', 'Tumbler', 'Individual Wallet'
     ];
-    
+
     const index = Math.round(prediction);
     const clampedIndex = Math.max(0, Math.min(12, index));
     return categories[clampedIndex];
@@ -73,8 +90,6 @@
 
   function getCategoryInfo(prediction) {
     const category = getCategoryDescription(prediction);
-    // Using a simple emoji for icons as an example.
-    // In a real app, you might use an icon library.
     const categoryMap = {
       'Blackmail': { icon: '💀', color: '#dc3545' },
       'Cyber-security Service': { icon: '🛡️', color: '#17a2b8' },
@@ -95,139 +110,141 @@
 
   $: categoryInfo = result ? getCategoryInfo(result.classification) : null;
   $: confidenceColor = result ? (result.confidence > 0.75 ? '#28a745' : result.confidence > 0.5 ? '#ffc107' : '#dc3545') : '#e9ecef';
+  $: usedStructuralModel = result?.features && ('S5' in result.features) && ('S1-1' in result.features);
   const radius = 16;
   const circumference = 2 * Math.PI * radius;
   $: dashOffset = result ? circumference * (1 - result.confidence) : circumference;
 </script>
 
 <div class="classifier-container">
-  <div class="header" in:fly={{ y: -20, duration: 300 }}>
-    <h1>Bitcoin Address Classifier</h1>
-    <p>A minimalist interface to analyze Bitcoin addresses.</p>
-  </div>
-  
-  <form on:submit|preventDefault={handleSubmit} in:fly={{ y: 20, duration: 300, delay: 100 }}>
-    <input
-      type="text"
-      bind:value={address}
-      placeholder="Enter Bitcoin address..."
-      disabled={loading}
-      class:loading={loading}
-    />
+  <form class="search-form" on:submit|preventDefault={handleSubmit} in:fly={{ y: 20, duration: 300 }}>
+    <div class="search-bar" class:loading>
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input
+        type="text"
+        bind:value={inputValue}
+        placeholder="Search a Bitcoin address..."
+        spellcheck="false"
+        autocomplete="off"
+        disabled={loading}
+      />
+      {#if loading}
+        <div class="search-spinner" aria-label="Analyzing..."></div>
+      {:else}
+        <button type="submit" class="search-submit" aria-label="Analyze address">
+          Analyze
+        </button>
+      {/if}
+    </div>
   </form>
-  
+
   {#if error}
     <div class="error-display" in:fly={{ y: 20, duration: 300 }} out:fly={{ y: -20, duration: 200 }}>
       <strong>{error.message}</strong>
       {#if error.details}<p>{error.details}</p>{/if}
     </div>
   {/if}
-  
+
   {#if loading}
     <div class="loading-skeleton" in:fly={{ y: 20, duration: 300 }}>
-      <div class="skeleton-header">
-        <div class="skeleton-title"></div>
-      </div>
       <div class="skeleton-body">
-        <div class="skeleton-item">
-          <div class="skeleton-label"></div>
-          <div class="skeleton-value"></div>
-        </div>
-        <div class="skeleton-item">
-          <div class="skeleton-label"></div>
-          <div class="skeleton-value"></div>
+        <div class="skeleton-row">
+          <div class="skeleton-circle"></div>
+          <div class="skeleton-lines">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line"></div>
+          </div>
+          <div class="skeleton-gauge"></div>
         </div>
       </div>
       <div class="skeleton-features">
-        <div class="skeleton-feature-grid">
-          {#each Array(8) as _, i}
-            <div class="skeleton-feature-item">
-              <div class="skeleton-feature-label"></div>
-              <div class="skeleton-feature-value"></div>
-            </div>
-          {/each}
-        </div>
+        {#each Array(8) as _}
+          <div class="skeleton-feature-item">
+            <div class="skeleton-line short"></div>
+            <div class="skeleton-line"></div>
+          </div>
+        {/each}
       </div>
     </div>
   {/if}
-  
+
   {#if result}
     <div class="result-card" in:scale={{ duration: 300, start: 0.95 }} out:scale={{ duration: 150 }}>
       <div class="result-main">
         <div class="category-display">
           {#if categoryInfo}
-            <div class="category-icon" style="background-color: {categoryInfo.color}; box-shadow: none;">
+            <div class="category-icon" style="background-color: {categoryInfo.color};">
               <span class="icon">{categoryInfo.icon}</span>
             </div>
           {/if}
           <div class="category-text">
             <span class="label">Classification Result</span>
             <h2>{getCategoryDescription(result.classification)}</h2>
+            <span class="model-badge">
+              {usedStructuralModel ? 'Structural model (transaction graph)' : 'Non-structural model (API features)'}
+            </span>
           </div>
         </div>
-        <div class="confidence-gauge">
-          <svg class="gauge-svg" viewBox="0 0 36 36">
-            <!-- Base circle -->
-            <circle
-              class="gauge-base"
-              cx="18"
-              cy="18"
-              r={radius}
-              fill="none"
-              stroke="#555"
-              stroke-width="3.8"
-            />
-            <!-- Progress arc -->
-            <circle
-              class="gauge-arc" 
-              cx="18"
-              cy="18"
-              r={radius}
-              fill="none"
-              stroke="{confidenceColor}"
-              stroke-width="3.8"
-              stroke-dasharray="{circumference}"
-              stroke-dashoffset="{dashOffset}"
-              stroke-linecap="round"
-              style="transition: stroke-dashoffset 0.5s;"
-              transform="rotate(-90 18 18)"
-            />
-          </svg>
-          <div class="gauge-text">
-            {(result.confidence * 100).toFixed(0)}<span>%</span>
+        <div class="result-side">
+          <div class="confidence-gauge">
+            <svg class="gauge-svg" viewBox="0 0 36 36">
+              <circle
+                class="gauge-base"
+                cx="18"
+                cy="18"
+                r={radius}
+                fill="none"
+                stroke-width="3.8"
+              />
+              <circle
+                class="gauge-arc"
+                cx="18"
+                cy="18"
+                r={radius}
+                fill="none"
+                stroke="{confidenceColor}"
+                stroke-width="3.8"
+                stroke-dasharray="{circumference}"
+                stroke-dashoffset="{dashOffset}"
+                stroke-linecap="round"
+                style="transition: stroke-dashoffset 0.5s;"
+                transform="rotate(-90 18 18)"
+              />
+            </svg>
+            <div class="gauge-text">
+              {(result.confidence * 100).toFixed(0)}<span>%</span>
+            </div>
           </div>
-        </div>
-      </div>
-      <div class="result-footer">
-        <div class="footer-item address-item">
-          <span class="label">Address</span>
-          <span class="value"><code>{result.address}</code></span>
-        </div>
-        <div class="footer-item action-item">
-          <button class="graph-btn" on:click={() => showGraph = true}>
-            View Graph
-          </button>
+          <span class="gauge-label">Confidence</span>
         </div>
       </div>
 
-      <details class="features-details">
-        <summary>Show Feature Summary</summary>
-        <div class="features-grid">
-          {#each Object.entries(result.features) as [key, value]}
-            <div class="feature-item">
-              <span class="label">{featureLabels[key] || key}</span>
-              <span class="value feature-value">{typeof value === 'number' ? (integerFeatures.includes(key) ? value : value.toFixed(4)) : value}</span>
-            </div>
-          {/each}
-        </div>
-      </details>
+      <div class="result-footer">
+        <details class="features-details">
+          <summary>Feature Summary</summary>
+          <div class="features-grid">
+            {#each Object.entries(result.features) as [key, value]}
+              <div class="feature-item">
+                <span class="label">{featureLabels[key] || key}</span>
+                <span class="value feature-value">{typeof value === 'number' ? (integerFeatures.includes(key) ? Math.round(value) : value.toFixed(4)) : value}</span>
+              </div>
+            {/each}
+          </div>
+        </details>
+        <button class="graph-btn" on:click={() => showGraph = true}>
+          View Graph
+        </button>
+      </div>
     </div>
   {/if}
 </div>
 
-<TransactionGraph 
-  address={result?.address} 
-  visible={showGraph} 
+<TransactionGraph
+  address={result?.address}
+  visible={showGraph}
   on:close={() => showGraph = false}
   on:nodeClick={(event) => {
     address = event.detail.address;
@@ -240,48 +257,49 @@
     width: 100%;
   }
 
-  .header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-  }
-
-  h1 {
-    font-size: 2rem;
-    font-weight: 600;
-    margin: 0 0 0.5rem 0;
-  }
-
-  p {
-    color: #6c757d;
-    margin: 0;
-  }
-
-  form {
-    display: flex;
-    gap: 0.5rem;
+  /* Search bar */
+  .search-form {
     margin-bottom: 1.5rem;
   }
 
-  input {
-    flex-grow: 1;
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     border: 1px solid var(--border-color);
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    border-radius: 6px;
+    border-radius: 999px;
     background-color: var(--background-primary);
-    color: var(--text-primary);
+    padding: 0.4rem 0.5rem 0.4rem 1.25rem;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
 
-  input:focus {
-    outline: none;
+  .search-bar:focus-within {
     border-color: var(--accent-color);
-    box-shadow: none;
   }
 
-  input.loading {
+  .search-bar.loading {
     border-color: var(--accent-color);
-    background-color: var(--background-secondary);
+  }
+
+  .search-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .search-bar input {
+    flex-grow: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+  }
+
+  .search-bar input:focus {
+    outline: none;
   }
 
   ::placeholder {
@@ -289,63 +307,50 @@
     opacity: 1;
   }
 
-  button {
-    background-color: #007bff;
+  .search-submit {
+    background-color: var(--accent-color);
     color: white;
     border: none;
-    padding: 0.75rem 1.5rem;
-    font-size: 1rem;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.9rem;
     font-weight: 500;
-    border-radius: 6px;
+    border-radius: 999px;
     cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 120px;
-    justify-content: center;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
   }
 
-  button:hover:not(:disabled) {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  .search-submit:hover {
+    background-color: var(--accent-color-hover);
   }
 
-  button:disabled {
-    background-color: #adb5bd;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-  }
-
-  button:focus {
-    outline: 2px solid var(--accent-color);
-    outline-offset: 2px;
-    box-shadow: none;
-  }
-
-  .loading-spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid transparent;
-    border-top: 2px solid var(--accent-color);
+  .search-spinner {
+    width: 20px;
+    height: 20px;
+    margin: 0.5rem 0.75rem;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent-color);
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
   }
 
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
   }
 
   .error-display {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    background-color: color-mix(in srgb, var(--error-color) 12%, var(--background-primary));
+    color: var(--error-color);
+    border: 1px solid color-mix(in srgb, var(--error-color) 40%, transparent);
     padding: 1rem;
-    border-radius: 6px;
+    border-radius: 8px;
     animation: shake 0.5s ease-in-out;
+  }
+
+  .error-display p {
+    margin: 0.25rem 0 0 0;
+    color: var(--text-secondary);
   }
 
   @keyframes shake {
@@ -354,72 +359,91 @@
     75% { transform: translateX(5px); }
   }
 
-  /* Loading Skeleton Styles */
+  /* Loading skeleton (theme-aware) */
   .loading-skeleton {
-    border: 1px solid var(--border-color-light);
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
     margin-top: 2rem;
     overflow: hidden;
-    background: #23272f;
-  }
-
-  .skeleton-header {
-    padding: 1rem 1.5rem;
-    background-color: #23272f;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .skeleton-title, .skeleton-label, .skeleton-value, .skeleton-feature-label, .skeleton-feature-value {
-    background: linear-gradient(90deg, #23272f 25%, #2d323c 50%, #23272f 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
+    background: var(--background-primary);
   }
 
   .skeleton-body {
     padding: 1.5rem;
+  }
+
+  .skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .skeleton-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .skeleton-gauge {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .skeleton-lines {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.6rem;
+    flex-grow: 1;
+    max-width: 260px;
   }
 
-  .skeleton-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .skeleton-line {
+    height: 0.9rem;
+    width: 100%;
   }
 
-  .skeleton-feature-grid {
+  .skeleton-line.short {
+    width: 55%;
+  }
+
+  .skeleton-circle,
+  .skeleton-gauge,
+  .skeleton-line {
+    background: linear-gradient(
+      90deg,
+      var(--background-secondary) 25%,
+      var(--background-tertiary) 50%,
+      var(--background-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  .skeleton-circle,
+  .skeleton-gauge {
+    border-radius: 50%;
+  }
+
+  .skeleton-features {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
     gap: 1rem;
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
   }
 
   .skeleton-feature-item {
     padding: 0.75rem;
-    background-color: #23272f;
+    background-color: var(--background-secondary);
     border-radius: 6px;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-  }
-
-  .skeleton-feature-label {
-    height: 0.8rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    width: 80%;
-  }
-
-  .skeleton-feature-value {
-    height: 0.8rem;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border-radius: 4px;
-    width: 60%;
   }
 
   @keyframes shimmer {
@@ -427,17 +451,13 @@
     100% { background-position: 200% 0; }
   }
 
+  /* Result card */
   .result-card {
     border: 1px solid var(--border-color);
     border-radius: 12px;
     margin-top: 2rem;
     overflow: hidden;
     background-color: var(--background-primary);
-    box-shadow: none;
-    transition: box-shadow 0.3s ease;
-  }
-  .result-card:hover {
-    box-shadow: none;
   }
 
   .result-main {
@@ -446,13 +466,13 @@
     align-items: center;
     padding: 1.5rem;
     gap: 1.5rem;
-    background: var(--background-primary);
   }
-  
+
   .category-display {
     display: flex;
     align-items: center;
     gap: 1rem;
+    min-width: 0;
   }
 
   .category-icon {
@@ -465,26 +485,52 @@
     font-size: 1.8rem;
     color: white;
     flex-shrink: 0;
-    background: var(--background-primary);
-    box-shadow: none;
   }
-  
+
+  .category-text {
+    min-width: 0;
+  }
+
   .category-text .label {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-secondary);
   }
-  
+
+  .model-badge {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background-color: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+  }
+
   h2 {
     font-size: 1.5rem;
     margin: 0;
     font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .result-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .gauge-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
   }
 
   .confidence-gauge {
     position: relative;
     width: 70px;
     height: 70px;
-    flex-shrink: 0;
   }
 
   .gauge-svg {
@@ -502,9 +548,6 @@
     fill: none;
     stroke-width: 3.8;
     stroke-linecap: round;
-    transform: rotate(-90deg);
-    transform-origin: 50% 50%;
-    transition: stroke-dasharray 0.5s ease-in-out;
   }
 
   .gauge-text {
@@ -514,10 +557,12 @@
     transform: translate(-50%, -50%);
     font-size: 1.25rem;
     font-weight: 600;
+    color: var(--text-primary);
   }
+
   .gauge-text span {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--text-secondary);
     margin-left: 2px;
   }
 
@@ -527,32 +572,8 @@
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
-    box-shadow: none;
-  }
-
-  .footer-item {
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .footer-item .label { font-size: 0.75rem; color: var(--text-secondary); }
-  .footer-item.address-item .value code {
-    background-color: transparent;
-    padding: 0;
-    font-size: 0.9em;
-    word-break: break-all;
-    color: var(--text-primary);
-  }
-  
-  .footer-item.address-item .value code:focus {
-    outline: none;
-    box-shadow: none;
-  }
-  
-  .action-item {
-    align-items: flex-end;
   }
 
   .graph-btn {
@@ -564,6 +585,8 @@
     font-weight: 500;
     border-radius: 6px;
     cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s;
   }
 
   .graph-btn:hover {
@@ -571,41 +594,70 @@
     color: white;
     border-color: var(--accent-color);
   }
-  
+
   .features-details {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
+    flex-grow: 1;
+    min-width: 0;
   }
 
   .features-details summary {
     cursor: pointer;
     font-weight: 500;
-    color: #495057;
+    color: var(--text-secondary);
     outline: none;
-    padding-bottom: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .features-details summary:hover {
+    color: var(--text-primary);
   }
 
   .features-grid {
     margin-top: 0.5rem;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
     gap: 1rem;
   }
-  
+
   .feature-item {
     padding: 0.75rem;
     background-color: var(--background-tertiary);
     border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
   }
 
   .feature-item .label {
-    text-transform: none;
-    letter-spacing: 0;
     font-size: 0.8rem;
+    color: var(--text-secondary);
   }
-  
+
   .feature-value {
     font-family: monospace;
     font-size: 0.9rem;
+    color: var(--text-primary);
   }
-</style> 
+
+  /* Responsive layout */
+  @media (max-width: 600px) {
+    .result-main {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .result-side {
+      align-self: center;
+    }
+
+    .result-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .graph-btn {
+      width: 100%;
+    }
+  }
+</style>

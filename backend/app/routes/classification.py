@@ -62,17 +62,13 @@ def classify_address():
                 'cached': True
             })
         
-        # Fetch and cache data for this address (single API call)
-        logger.info(f"Fetching and caching data for {address}")
-        cached_data = feature_service.fetch_and_cache_data(address)
-        
-        # Extract features using cached data
-        logger.info(f"Extracting features for {address}")
-        features = feature_service._calculate_features(
-            address, 
-            cached_data['address_data'], 
-            cached_data['transactions']
-        )
+        # Hybrid pipeline: use the precomputed structural features when the
+        # address is part of our transaction graph, otherwise compute the
+        # non-structural features from BlockCypher data
+        features = ml_service.get_structural_features(address)
+        if features is None:
+            logger.info(f"Extracting non-structural features for {address}")
+            features = feature_service.extract_features(address)
         
         # Make prediction
         logger.info(f"Making prediction for {address}")
@@ -95,6 +91,7 @@ def classify_address():
             'confidence': round(float(prediction_result['confidence']), 8),
             'probabilities': [round(float(x), 8) for x in prediction_result.get('probabilities', [])],
             'features': features,
+            'model_type': prediction_result.get('model_type', ''),
             'note': prediction_result.get('note', ''),
             'cached': False
         })
@@ -479,8 +476,10 @@ def test_classify():
             
         logger.info(f"Test classification for address: {address}")
         
-        # Extract features
-        features = feature_service.extract_features(address)
+        # Extract features (hybrid pipeline)
+        features = ml_service.get_structural_features(address)
+        if features is None:
+            features = feature_service.extract_features(address)
         logger.info(f"Features extracted: {features}")
         
         # Make prediction
@@ -518,7 +517,9 @@ def batch_classify():
             logger.info(f"Processing address: {address}")
             try:
                 logger.debug(f"Extracting features for {address}")
-                features = feature_service.extract_features(address)
+                features = ml_service.get_structural_features(address)
+                if features is None:
+                    features = feature_service.extract_features(address)
                 logger.debug(f"Features for {address}: {features}")
                 
                 if not features:

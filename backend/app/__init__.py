@@ -27,6 +27,13 @@ def create_app():
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
+    # Preserve dict insertion order in JSON responses (e.g. the chronological
+    # month order of /address-count-over-time); Flask sorts keys by default.
+    try:
+        app.json.sort_keys = False
+    except AttributeError:
+        app.config['JSON_SORT_KEYS'] = False
+    
     CORS(app, origins="*", supports_credentials=False)
     db.init_app(app)
     

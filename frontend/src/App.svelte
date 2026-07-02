@@ -45,7 +45,9 @@
       <div class="app-layout">
           <nav class="sidebar">
             <div class="sidebar-header">
-              <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
+              <Link to="/" class="logo-link" aria-label="Go to dashboard">
+                <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
+              </Link>
             </div>
             <div class="nav-links" style="position: relative;">
               {#if activeIndex >= 0}
@@ -110,6 +112,11 @@
     padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-md);
     border-bottom: 1px solid var(--border-color);
     background: var(--background-primary);
+  }
+
+  .sidebar-header :global(a.logo-link) {
+    display: inline-block;
+    cursor: pointer;
   }
 
   .sidebar-header img {
@@ -236,5 +243,71 @@
     border-radius: 2px;
     transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
     z-index: 1;
+  }
+
+  /* Collapse the sidebar into a top navigation bar on narrow screens */
+  @media (max-width: 900px) {
+    .app-layout {
+      flex-direction: column;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-header {
+      padding: var(--spacing-md) var(--spacing-md) 0;
+      border-bottom: none;
+    }
+
+    .sidebar-header img,
+    .sidebar-logo {
+      height: 2rem;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .nav-links {
+      flex-direction: row;
+      align-items: stretch;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 0 var(--spacing-sm);
+      scrollbar-width: none;
+    }
+
+    .nav-links::-webkit-scrollbar {
+      display: none;
+    }
+
+    .nav-links :global(a.nav-link) {
+      border-left: none;
+      border-bottom: 3px solid transparent;
+      padding: var(--spacing-sm) var(--spacing-md);
+      margin: 0;
+      white-space: nowrap;
+    }
+
+    .nav-links :global(a.nav-link[aria-current='page']) {
+      border-left: none;
+      border-bottom: 3px solid var(--accent-color);
+    }
+
+    .nav-indicator {
+      display: none;
+    }
+
+    .sidebar-footer {
+      display: none;
+    }
+
+    .main-content {
+      margin-left: 0;
+      padding: var(--spacing-md);
+    }
   }
 </style> 
