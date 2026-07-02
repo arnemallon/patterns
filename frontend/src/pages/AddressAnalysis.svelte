@@ -21,7 +21,7 @@
 </script>
 
 <div class="address-analysis" in:fly={{ y: 20, duration: 500 }}>
-  <AddressClassifier bind:address={addressToClassify} />
+  <AddressClassifier address={addressToClassify} />
 </div>
 
 <style>

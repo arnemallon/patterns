@@ -1,5 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
+  import { navigate } from 'svelte-routing';
   import { apiService } from '../services/api.js';
   import { fly, scale } from 'svelte/transition';
   import TransactionGraph from './TransactionGraph.svelte';
@@ -13,11 +14,15 @@
   let showGraph = false;
   let lastClassifiedAddress = null;
 
+  // Tracks the last value of the `address` prop so we can react ONLY when it
+  // changes from the outside (URL parameter, history click, graph node click)
+  // instead of on every keystroke - the latter would wipe what the user types.
+  let syncedAddress = address;
+
   const dispatch = createEventDispatcher();
 
-  // Auto-classify when the address is set from outside (URL parameter,
-  // history click, graph node click) - not while the user is typing.
-  $: if (address !== inputValue) {
+  $: if (address !== syncedAddress) {
+    syncedAddress = address;
     inputValue = address;
     if (address && address.trim() && address.trim() !== lastClassifiedAddress) {
       classify(address.trim());
@@ -48,14 +53,26 @@
 
   const integerFeatures = ['S2-1', 'S2-2', 'S2-3', 'S6', 'CI3a12-3'];
 
+  function goToAddress(addr) {
+    const trimmed = (addr || '').trim();
+    if (!trimmed) return;
+    // Keep the URL in sync so the analysis is shareable / bookmarkable and the
+    // address prop stays consistent with the router (single source of truth).
+    navigate(`/analysis?address=${encodeURIComponent(trimmed)}`);
+    syncedAddress = trimmed;
+    inputValue = trimmed;
+    if (trimmed !== lastClassifiedAddress) {
+      classify(trimmed);
+    }
+  }
+
   function handleSubmit() {
     const trimmed = inputValue.trim();
     if (!trimmed) {
       error = { message: 'Validation Error', details: 'Please enter a Bitcoin address.' };
       return;
     }
-    address = trimmed;
-    classify(trimmed);
+    goToAddress(trimmed);
   }
 
   async function classify(addr) {
@@ -247,8 +264,8 @@
   visible={showGraph}
   on:close={() => showGraph = false}
   on:nodeClick={(event) => {
-    address = event.detail.address;
     showGraph = false;
+    goToAddress(event.detail.address);
   }}
 />
 

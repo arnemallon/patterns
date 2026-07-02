@@ -298,13 +298,17 @@ def get_transaction_graph(address):
         if cached_data:
             logger.info(f"Using cached data from feature service for {address}")
             transactions = cached_data['transactions']
-            address_data = cached_data['address_data']
         else:
-            # If no cached data, fetch and cache it (this will be used for both features and graph)
+            # If no cached data, fetch it. The graph only needs the transaction
+            # list, so a failure to fetch the (optional) address summary must
+            # not abort the whole request.
             logger.info(f"No cached data found, fetching for {address}")
-            cached_data = feature_service.fetch_and_cache_data(address)
-            transactions = cached_data['transactions']
-            address_data = cached_data['address_data']
+            try:
+                cached_data = feature_service.fetch_and_cache_data(address)
+                transactions = cached_data['transactions']
+            except Exception as fetch_error:
+                logger.warning(f"Full fetch failed for {address}: {fetch_error}; retrying transactions only")
+                transactions = feature_service._get_transactions(address)
         
         # Build graph data
         nodes = []
@@ -335,69 +339,79 @@ def get_transaction_graph(address):
             graph_cache[address] = result
             return jsonify(result)
         
-        for tx in transactions[:10]:  # Limit to 10 transactions for performance
-            tx_hash = tx['hash']
+        node_ids = {node['id'] for node in nodes}
+
+        for tx in (transactions or [])[:10]:  # Limit to 10 transactions for performance
+            tx_hash = tx.get('hash')
+            if not tx_hash:
+                continue
             logger.debug(f"Processing transaction: {tx_hash}")
             
             # Add transaction as a node
-            nodes.append({
-                'id': tx_hash,
-                'label': f"TX: {tx_hash[:8]}...",
-                'title': f"Transaction: {tx_hash}",
-                'color': '#28a745',
-                'size': 15,
-                'shape': 'diamond'
-            })
+            if tx_hash not in node_ids:
+                nodes.append({
+                    'id': tx_hash,
+                    'label': f"TX: {tx_hash[:8]}...",
+                    'title': f"Transaction: {tx_hash}",
+                    'color': '#28a745',
+                    'size': 15,
+                    'shape': 'diamond'
+                })
+                node_ids.add(tx_hash)
             
-            # Add edges from inputs to transaction
-            for input_tx in tx.get('inputs', []):
-                if 'addresses' in input_tx:
-                    for addr in input_tx['addresses']:
-                        if addr not in [node['id'] for node in nodes]:
-                            nodes.append({
-                                'id': addr,
-                                'label': f"{addr[:8]}...{addr[-8:]}",
-                                'title': f"Address: {addr}",
-                                'color': '#ffc107',
-                                'size': 20,
-                                'shape': 'circle',
-                                'address': addr
-                            })
-                        
-                        edges.append({
-                            'from': addr,
-                            'to': tx_hash,
-                            'label': f"{input_tx.get('output_value', 0) / 100000000:.2f} BTC",
-                            'title': f"Input: {input_tx.get('output_value', 0) / 100000000:.8f} BTC",
-                            'color': '#dc3545',
-                            'width': 2,
-                            'arrows': 'to'
+            # Add edges from inputs to transaction. BlockCypher can return
+            # `inputs`/`addresses` as null for coinbase or non-standard scripts,
+            # so guard every collection before iterating.
+            for input_tx in (tx.get('inputs') or []):
+                for addr in (input_tx.get('addresses') or []):
+                    if addr not in node_ids:
+                        nodes.append({
+                            'id': addr,
+                            'label': f"{addr[:8]}...{addr[-8:]}",
+                            'title': f"Address: {addr}",
+                            'color': '#ffc107',
+                            'size': 20,
+                            'shape': 'circle',
+                            'address': addr
                         })
+                        node_ids.add(addr)
+                    
+                    input_value = (input_tx.get('output_value') or 0) / 100000000
+                    edges.append({
+                        'from': addr,
+                        'to': tx_hash,
+                        'label': f"{input_value:.2f} BTC",
+                        'title': f"Input: {input_value:.8f} BTC",
+                        'color': '#dc3545',
+                        'width': 2,
+                        'arrows': 'to'
+                    })
             
             # Add edges from transaction to outputs
-            for output in tx.get('outputs', []):
-                if 'addresses' in output:
-                    for addr in output['addresses']:
-                        if addr not in [node['id'] for node in nodes]:
-                            nodes.append({
-                                'id': addr,
-                                'label': f"{addr[:8]}...{addr[-8:]}",
-                                'title': f"Address: {addr}",
-                                'color': '#ffc107',
-                                'size': 20,
-                                'shape': 'circle',
-                                'address': addr
-                            })
-                        
-                        edges.append({
-                            'from': tx_hash,
-                            'to': addr,
-                            'label': f"{output.get('value', 0) / 100000000:.2f} BTC",
-                            'title': f"Output: {output.get('value', 0) / 100000000:.8f} BTC",
-                            'color': '#28a745',
-                            'width': 2,
-                            'arrows': 'to'
+            for output in (tx.get('outputs') or []):
+                for addr in (output.get('addresses') or []):
+                    if addr not in node_ids:
+                        nodes.append({
+                            'id': addr,
+                            'label': f"{addr[:8]}...{addr[-8:]}",
+                            'title': f"Address: {addr}",
+                            'color': '#ffc107',
+                            'size': 20,
+                            'shape': 'circle',
+                            'address': addr
                         })
+                        node_ids.add(addr)
+                    
+                    output_value = (output.get('value') or 0) / 100000000
+                    edges.append({
+                        'from': tx_hash,
+                        'to': addr,
+                        'label': f"{output_value:.2f} BTC",
+                        'title': f"Output: {output_value:.8f} BTC",
+                        'color': '#28a745',
+                        'width': 2,
+                        'arrows': 'to'
+                    })
         
         logger.info(f"Graph data generated: {len(nodes)} nodes, {len(edges)} edges")
         
