@@ -6,54 +6,48 @@
   import CategoryChart from '../components/CategoryChart.svelte';
   import LineChart from '../components/LineChart.svelte';
 
-  let recentActivity = [];
-  let activeAlerts = [];
   let categoryDistribution = {};
-  let stats = {
-    totalAddresses: 0,
-    suspiciousAddresses: 0,
-    activeCases: 0,
-    pendingAlerts: 0
-  };  
+  let stats = null;
   let addressCountOverTime = {};
-  let lastAddresses = [];
-  let alerts = [];
+  let lastAddresses = null;
+  let alerts = null;
   let refreshingAlerts = false;
+
+  // Individual loading flags so widgets can render independently
+  let statsLoaded = false;
+  let categoryLoaded = false;
+  let timelineLoaded = false;
+  let addressesLoaded = false;
+  let alertsLoaded = false;
 
   onMount(async () => {
     try {
-      // Fetch actual statistics from the backend
       const statistics = await apiService.getStatistics();
       stats = {
         totalAddresses: statistics.total_addresses || 0,
         suspiciousAddresses: statistics.suspicious_addresses || 0,
-        activeCases: 0, // This would need a separate endpoint for cases
-        pendingAlerts: 0 // This would need a separate endpoint for alerts
+        activeCases: 0,
+        pendingAlerts: 0
       };
+      statsLoaded = true;
 
-      // Fetch category distribution for the chart
       const distribution = await apiService.getCategoryDistribution();
-      console.log('Fetched category distribution from API:', distribution);
-      // Sort and keep top 5 categories
       const sorted = Object.entries(distribution)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5);
       categoryDistribution = Object.fromEntries(sorted);
-      console.log('categoryDistribution state (top 5):', categoryDistribution);
+      categoryLoaded = true;
 
-      // Fetch address count over time for the line chart
       addressCountOverTime = await apiService.getAddressCountOverTime();
+      timelineLoaded = true;
 
-      // Fetch last 6 analyzed addresses
       const history = await apiService.getHistory(6, 0, {});
       lastAddresses = history.classifications || [];
+      addressesLoaded = true;
 
-      // Fetch triggered alerts from the alerts API
       try {
         const alertsResponse = await alertsApi.getTriggered();
         const triggeredAlerts = alertsResponse.alerts || [];
-        
-        // Convert to dashboard format
         alerts = triggeredAlerts.map(alert => ({
           id: alert.id,
           type: getAlertTypeLabel(alert.type),
@@ -62,61 +56,20 @@
           lastTriggered: alert.last_triggered ? new Date(alert.last_triggered) : null,
           triggerCount: alert.trigger_count || 0
         }));
-        
-        // Update pending alerts count
-        stats.pendingAlerts = triggeredAlerts.length;
+        if (stats) stats.pendingAlerts = triggeredAlerts.length;
       } catch (error) {
         console.error('Failed to fetch triggered alerts:', error);
         alerts = [];
       }
+      alertsLoaded = true;
     } catch (error) {
       console.error('Failed to fetch statistics:', error);
-      // Keep default values if API call fails
+      statsLoaded = true;
+      categoryLoaded = true;
+      timelineLoaded = true;
+      addressesLoaded = true;
+      alertsLoaded = true;
     }
-
-    // Mock data - in real implementation, this would come from API
-    recentActivity = [
-      {
-        id: 1,
-        type: 'classification',
-        address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-        result: 'suspicious',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-        riskScore: 0.85
-      },
-      {
-        id: 2,
-        type: 'case_created',
-        caseName: 'Exchange Investigation',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      },
-      {
-        id: 3,
-        type: 'alert_triggered',
-        address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy',
-        alertType: 'new_transaction',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4), // 4 hours ago
-      }
-    ];
-
-    activeAlerts = [
-      {
-        id: 1,
-        address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
-        type: 'high_risk_transaction',
-        severity: 'high',
-        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
-        description: 'Large transaction detected from known mixer address'
-      },
-      {
-        id: 2,
-        address: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy',
-        type: 'new_transaction',
-        severity: 'medium',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60), // 1 hour ago
-        description: 'New transaction detected on monitored address'
-      }
-    ];
   });
 
   function formatTimeAgo(date) {
@@ -199,39 +152,58 @@
     <div class="left-col">
       <!-- Statistics Cards -->
       <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-content">
-            <span class="stat-number">{stats.totalAddresses.toLocaleString()}</span>
-            <span class="stat-desc">Total Addresses <br/>Analyzed</span>
+        {#if statsLoaded && stats}
+          <div class="stat-card">
+            <div class="stat-content">
+              <span class="stat-number">{stats.totalAddresses.toLocaleString()}</span>
+              <span class="stat-desc">Total Addresses <br/>Analyzed</span>
+            </div>
           </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-content">
-            <span class="stat-number">{stats.suspiciousAddresses}</span>
-            <span class="stat-desc">Suspicious <br/>Addresses</span>
+          <div class="stat-card">
+            <div class="stat-content">
+              <span class="stat-number">{stats.suspiciousAddresses}</span>
+              <span class="stat-desc">Suspicious <br/>Addresses</span>
+            </div>
           </div>
-        </div>
-        
-        <div class="stat-card">
-          <div class="stat-content">
-            <span class="stat-number">{stats.pendingAlerts}</span>
-            <span class="stat-desc">Pending Alerts</span>
+          <div class="stat-card">
+            <div class="stat-content">
+              <span class="stat-number">{stats.pendingAlerts}</span>
+              <span class="stat-desc">Pending Alerts</span>
+            </div>
           </div>
-        </div>
+        {:else}
+          {#each Array(3) as _}
+            <div class="stat-card skeleton-pulse">
+              <div class="stat-content">
+                <span class="skel-block" style="width:2.5rem; height:1.8rem;"></span>
+                <span class="skel-block" style="width:5rem; height:0.8rem;"></span>
+              </div>
+            </div>
+          {/each}
+        {/if}
       </div>
 
-      <!-- Main Content Grid -->
       <!-- Category Distribution -->
       <div class="dashboard-card">
         <div class="card-header">
           <h2>Category Distribution</h2>
         </div>
         <div class="category-distribution">
-          {#if Object.keys(categoryDistribution).length > 0}
-            <CategoryChart data={categoryDistribution} />
+          {#if categoryLoaded}
+            {#if Object.keys(categoryDistribution).length > 0}
+              <CategoryChart data={categoryDistribution} />
+            {:else}
+              <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+            {/if}
           {:else}
-            <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+            <div class="chart-skeleton">
+              {#each Array(5) as _, i}
+                <div class="chart-skel-row">
+                  <span class="skel-block" style="width:5rem; height:0.7rem;"></span>
+                  <span class="skel-block" style="flex:1; max-width:{70 - i * 12}%; height:0.9rem;"></span>
+                </div>
+              {/each}
+            </div>
           {/if}
         </div>
       </div>
@@ -242,10 +214,14 @@
           <h2>Addresses Analyzed Over Time</h2>
         </div>
         <div class="line-distribution">
-          {#if Object.keys(addressCountOverTime).length > 0}
-            <LineChart data={addressCountOverTime} />
+          {#if timelineLoaded}
+            {#if Object.keys(addressCountOverTime).length > 0}
+              <LineChart data={addressCountOverTime} />
+            {:else}
+              <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+            {/if}
           {:else}
-            <p style="text-align:center; color: var(--text-secondary); margin-top: 2rem;">No data to display</p>
+            <div class="skel-block" style="width:100%; height:180px; border-radius:var(--border-radius-md);"></div>
           {/if}
         </div>
       </div>
@@ -254,7 +230,7 @@
       <!-- Alerts Widget -->
       <div class="dashboard-card alerts-widget">
         <div class="card-header">
-          <h2>Alerts Triggered ({alerts.length})</h2>
+          <h2>Alerts Triggered ({(alerts || []).length})</h2>
           <div class="header-actions">
             <button class="refresh-btn" on:click={refreshAlerts} title="Refresh alerts" disabled={refreshingAlerts}>
               {refreshingAlerts ? '⟳' : '↻'}
@@ -263,21 +239,29 @@
           </div>
         </div>
         <div class="alerts-widget-content">
-          {#if alerts.length > 0}
-            <ul class="alerts-list-widget">
-              {#each alerts as alert}
-                <li class="alert-item" on:click={() => handleAddressClick(alert.address)}>
-                  <div class="alert-header">
-                    <span class="alert-type">{alert.type}</span>
-                    <span class="alert-time">{formatTimeAgo(alert.lastTriggered || new Date())}</span>
-                  </div>
-                  <div class="alert-desc">{alert.description}</div>
-                  <div class="alert-meta">Triggered {alert.triggerCount} time{alert.triggerCount !== 1 ? 's' : ''}</div>
-                </li>
-              {/each}
-            </ul>
+          {#if alertsLoaded}
+            {#if (alerts || []).length > 0}
+              <ul class="alerts-list-widget">
+                {#each alerts as alert}
+                  <li class="alert-item" on:click={() => handleAddressClick(alert.address)}>
+                    <div class="alert-header">
+                      <span class="alert-type">{alert.type}</span>
+                      <span class="alert-time">{formatTimeAgo(alert.lastTriggered || new Date())}</span>
+                    </div>
+                    <div class="alert-desc">{alert.description}</div>
+                    <div class="alert-meta">Triggered {alert.triggerCount} time{alert.triggerCount !== 1 ? 's' : ''}</div>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="no-alerts-text">No alerts have been triggered yet.</p>
+            {/if}
           {:else}
-            <p class="no-alerts-text">No alerts have been triggered yet.</p>
+            <div class="skel-lines">
+              {#each Array(3) as _}
+                <div class="skel-block" style="width:100%; height:0.7rem; margin-bottom:0.6rem;"></div>
+              {/each}
+            </div>
           {/if}
         </div>
       </div>
@@ -295,18 +279,27 @@
             </tr>
           </thead>
           <tbody>
-            {#each lastAddresses as item, i}
-              <tr 
-                class={i % 2 === 0 ? 'even-row' : 'odd-row'}
-                on:click={() => handleAddressClick(item.address)}
-                title="Click to re-classify this address"
-              >
-                <td><code>{item.address.slice(0, 10)}...</code></td>
-                <td class="category-col">{getCategoryDescription(item.classification)}</td>
-              </tr>
-            {/each}
-            {#if lastAddresses.length === 0}
-              <tr><td colspan="2" style="text-align:center; color: var(--text-secondary);">No data</td></tr>
+            {#if addressesLoaded}
+              {#each (lastAddresses || []) as item, i}
+                <tr
+                  class={i % 2 === 0 ? 'even-row' : 'odd-row'}
+                  on:click={() => handleAddressClick(item.address)}
+                  title="Click to re-classify this address"
+                >
+                  <td><code>{item.address.slice(0, 10)}...</code></td>
+                  <td class="category-col">{getCategoryDescription(item.classification)}</td>
+                </tr>
+              {/each}
+              {#if (lastAddresses || []).length === 0}
+                <tr><td colspan="2" style="text-align:center; color: var(--text-secondary);">No data</td></tr>
+              {/if}
+            {:else}
+              {#each Array(6) as _, i}
+                <tr class={i % 2 === 0 ? 'even-row' : 'odd-row'}>
+                  <td><span class="skel-block" style="width:5rem; height:0.7rem;"></span></td>
+                  <td><span class="skel-block" style="width:6rem; height:0.7rem;"></span></td>
+                </tr>
+              {/each}
             {/if}
           </tbody>
         </table>
@@ -316,31 +309,18 @@
 </div>
 
 <style>
-  /* Make the dashboard fit the viewport and prevent scrolling */
-  html, body {
-    min-height: 100vh;
-    margin: 0;
-    padding: 0;
-    overflow: hidden;
-  }
   .dashboard {
-    max-width: 1200px;
     margin: 0 auto;
-    min-height: 100vh;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
   .dashboard-columns {
-    flex: 1 1 0;
     min-height: 0;
-    overflow: hidden;
   }
   .left-col, .right-col {
     gap: 0.7rem;
     padding-bottom: 0;
   }
-  /* Make category distribution more compact */
   .category-distribution {
     padding-bottom: 0.2rem;
   }
@@ -352,21 +332,6 @@
     margin-bottom: 0.2rem;
   }
   /* Reduce font size for y-axis labels in CategoryChart.svelte if needed */
-
-  .dashboard-header {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .dashboard-header h1 {
-    margin-bottom: var(--spacing-sm);
-    color: var(--text-primary);
-  }
-
-  .dashboard-header p {
-    color: var(--text-secondary);
-    font-size: var(--font-size-lg);
-    margin: 0;
-  }
 
   /* Statistics Grid */
   .stats-grid {
@@ -416,48 +381,27 @@
     color: var(--text-secondary);
     font-size: var(--font-size-xs);
     margin: 0;
-    white-space: nowrap;
-  }
-
-  .dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  @media (max-width: 1200px) {
-    .dashboard-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .dashboard-grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   .dashboard-columns {
     display: flex;
     flex-direction: row;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-lg);
     align-items: flex-start;
   }
   .left-col {
-    flex: 1 1 0;
+    flex: 3 1 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
   }
   .right-col {
-    flex: 0 0 400px;
-    max-width: 450px;
-    min-width: 300px;
+    flex: 2 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xl);
+    gap: var(--spacing-lg);
   }
   .dashboard-card {
     background: var(--background-primary);
@@ -529,10 +473,14 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.95rem;
+    table-layout: fixed;
   }
   .recent-addresses-table th, .recent-addresses-table td {
     padding: 0.4rem 0.6rem;
     text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .recent-addresses-table th {
     color: var(--text-secondary);
@@ -646,7 +594,8 @@
   }
 
   .alerts-widget {
-    height: 240px;
+    min-height: 180px;
+    max-height: 280px;
     display: flex;
     flex-direction: column;
   }
@@ -657,38 +606,68 @@
     padding: 0.5rem 0 0.5rem 0;
   }
 
-  /* Responsive layout */
+  /* Stack columns when the content area gets narrow.
+     Above 900px the sidebar takes 280px, so viewport 1100px → ~780px content.
+     Below 900px sidebar becomes top bar → full viewport available. */
   @media (max-width: 1100px) {
-    .dashboard {
-      min-height: 0;
-      overflow: visible;
-    }
-
     .dashboard-columns {
       flex-direction: column;
-      overflow: visible;
     }
 
     .right-col {
       flex: 1 1 auto;
       width: 100%;
-      max-width: none;
-      min-width: 0;
       gap: var(--spacing-md);
     }
   }
 
-  @media (max-width: 700px) {
+  @media (max-width: 600px) {
     .stats-grid {
       grid-template-columns: 1fr;
-    }
-
-    .stat-desc {
-      white-space: normal;
     }
 
     .stat-desc br {
       display: none;
     }
+  }
+
+  /* Skeleton loading */
+  .skel-block {
+    display: inline-block;
+    background: linear-gradient(
+      90deg,
+      var(--background-secondary) 25%,
+      var(--background-tertiary) 50%,
+      var(--background-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 4px;
+  }
+
+  .skeleton-pulse {
+    pointer-events: none;
+  }
+
+  .chart-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem 0 1rem;
+  }
+
+  .chart-skel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .skel-lines {
+    padding: 1rem 0;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
   }
 </style> 

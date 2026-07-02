@@ -1,6 +1,5 @@
 <script>
   import { Router, Link, Route } from 'svelte-routing';
-  import { fly, fade } from 'svelte/transition';
   import './app.css';
   import { useLocation } from 'svelte-routing';
 
@@ -13,8 +12,6 @@
   import Settings from './pages/Settings.svelte';
 
   export let url = '';
-
-  let pageLoaded = false;
 
   const location = useLocation();
 
@@ -33,58 +30,44 @@
       indicatorScale = el.offsetHeight / 48;
     }
   }
-
-  setTimeout(() => {
-    pageLoaded = true;
-  }, 100);
 </script>
 
-{#if pageLoaded}
-  <Router {url}>
-    <main in:fly={{ y: 20, duration: 500, delay: 200 }}>
-      <div class="app-layout">
-          <nav class="sidebar">
-            <div class="sidebar-header">
-              <Link to="/" class="logo-link" aria-label="Go to dashboard">
-                <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
-              </Link>
-            </div>
-            <div class="nav-links" style="position: relative;">
-              {#if activeIndex >= 0}
-                <div class="nav-indicator" style="transform: translateY({indicatorY}px) scaleY({indicatorScale});"></div>
-              {/if}
-              <Link to="/" class="nav-link" bind:this={navLink0}>Dashboard</Link>
-              <Link to="/analysis" class="nav-link" bind:this={navLink1}>Address Analysis</Link>
-              <Link to="/batch" class="nav-link" bind:this={navLink2}>Batch Analysis</Link>
-              <Link to="/alerts" class="nav-link" bind:this={navLink3}>Alerts</Link>
-              <Link to="/history" class="nav-link" bind:this={navLink4}>History</Link>
-            </div>
-            
-            <div class="sidebar-footer">
-            </div>
-          </nav>
-
-          <div class="main-content">
-            <Route path="/" component={Dashboard} />
-            <Route path="/analysis" component={AddressAnalysis} />
-            <Route path="/batch" component={BatchAnalysis} />
-            <Route path="/cases" component={CaseManagement} />
-            <Route path="/alerts" component={Alerts} />
-            <Route path="/history" component={History} />
-            <Route path="/settings" component={Settings} />
-          </div>
+<Router {url}>
+  <div class="app-layout">
+    <nav class="sidebar">
+      <div class="sidebar-header">
+        <Link to="/" class="logo-link" aria-label="Go to dashboard">
+          <img src="/patterns_logo.svg" alt="Patterns Logo" class="sidebar-logo" />
+        </Link>
+      </div>
+      <div class="nav-scroll-wrapper">
+        <div class="nav-links" style="position: relative;">
+          {#if activeIndex >= 0}
+            <div class="nav-indicator" style="transform: translateY({indicatorY}px) scaleY({indicatorScale});"></div>
+          {/if}
+          <Link to="/" class="nav-link" bind:this={navLink0}>Dashboard</Link>
+          <Link to="/analysis" class="nav-link" bind:this={navLink1}>Address Analysis</Link>
+          <Link to="/batch" class="nav-link" bind:this={navLink2}>Batch Analysis</Link>
+          <Link to="/alerts" class="nav-link" bind:this={navLink3}>Alerts</Link>
+          <Link to="/history" class="nav-link" bind:this={navLink4}>History</Link>
         </div>
-    </main>
-  </Router>
-{:else}
-  <div class="loading-screen">
-    <div class="loading-content">
-      <div class="loading-spinner"></div>
-      <h2>Loading Bitcoin Classifier</h2>
-      <p>Initializing application...</p>
+      </div>
+      
+      <div class="sidebar-footer">
+      </div>
+    </nav>
+
+    <div class="main-content">
+      <Route path="/" component={Dashboard} />
+      <Route path="/analysis" component={AddressAnalysis} />
+      <Route path="/batch" component={BatchAnalysis} />
+      <Route path="/cases" component={CaseManagement} />
+      <Route path="/alerts" component={Alerts} />
+      <Route path="/history" component={History} />
+      <Route path="/settings" component={Settings} />
     </div>
   </div>
-{/if}
+</Router>
 
 <style>
   /* App Layout */
@@ -180,51 +163,9 @@
   .main-content {
     flex: 1;
     padding: var(--spacing-xl);
-    overflow-y: auto;
     margin-left: 280px;
     background-color: var(--background-secondary);
-  }
-
-  /* Loading Screen */
-  .loading-screen {
-    display: flex;
-    justify-content: center;
-    align-items: center;
     min-height: 100vh;
-    background: var(--background-secondary);
-  }
-
-  .loading-content {
-    text-align: center;
-    color: var(--text-primary);
-  }
-
-  .loading-spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid var(--border-color);
-    border-top: 4px solid var(--accent-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto var(--spacing-xl);
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .loading-content h2 {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .loading-content p {
-    margin: 0;
-    opacity: 0.8;
-    font-size: var(--font-size-base);
-    color: var(--text-secondary);
   }
 
   .sidebar-logo {
@@ -245,6 +186,11 @@
     z-index: 1;
   }
 
+  .nav-scroll-wrapper {
+    flex: 1;
+    display: contents;
+  }
+
   /* Collapse the sidebar into a top navigation bar on narrow screens */
   @media (max-width: 900px) {
     .app-layout {
@@ -252,23 +198,60 @@
     }
 
     .sidebar {
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       width: 100%;
       height: auto;
       border-right: none;
       border-bottom: 1px solid var(--border-color);
+      flex-direction: row;
+      align-items: center;
+      z-index: 200;
     }
 
     .sidebar-header {
-      padding: var(--spacing-md) var(--spacing-md) 0;
+      padding: 0.6rem 0 0.6rem var(--spacing-md);
       border-bottom: none;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
     }
 
     .sidebar-header img,
     .sidebar-logo {
-      height: 2rem;
-      margin-bottom: var(--spacing-sm);
+      height: 1.75rem;
+      margin-bottom: 0;
+    }
+
+    .nav-scroll-wrapper {
+      display: block;
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* Edge fades to hint horizontal scrollability */
+    .nav-scroll-wrapper::before,
+    .nav-scroll-wrapper::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 32px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .nav-scroll-wrapper::before {
+      left: 0;
+      background: linear-gradient(to right, var(--background-primary), transparent);
+    }
+
+    .nav-scroll-wrapper::after {
+      right: 0;
+      background: linear-gradient(to left, var(--background-primary), transparent);
     }
 
     .nav-links {
@@ -276,7 +259,7 @@
       align-items: stretch;
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 0 var(--spacing-sm);
+      padding: 0 var(--spacing-md);
       scrollbar-width: none;
     }
 
@@ -287,7 +270,7 @@
     .nav-links :global(a.nav-link) {
       border-left: none;
       border-bottom: 3px solid transparent;
-      padding: var(--spacing-sm) var(--spacing-md);
+      padding: 0.7rem var(--spacing-md);
       margin: 0;
       white-space: nowrap;
     }
@@ -307,6 +290,7 @@
 
     .main-content {
       margin-left: 0;
+      margin-top: 52px;
       padding: var(--spacing-md);
     }
   }
