@@ -17,7 +17,9 @@
   // Tracks the last value of the `address` prop so we can react ONLY when it
   // changes from the outside (URL parameter, history click, graph node click)
   // instead of on every keystroke - the latter would wipe what the user types.
-  let syncedAddress = address;
+  // Initialized to empty so the reactive block fires on mount when the component
+  // is created with a pre-filled address (e.g. from URL or history navigation).
+  let syncedAddress = '';
 
   const dispatch = createEventDispatcher();
 
@@ -73,6 +75,13 @@
       return;
     }
     goToAddress(trimmed);
+  }
+
+  function handlePaste(e) {
+    const pasted = (e.clipboardData || window.clipboardData)?.getData('text')?.trim();
+    if (pasted) {
+      setTimeout(() => goToAddress(pasted), 0);
+    }
   }
 
   async function classify(addr) {
@@ -143,6 +152,7 @@
       <input
         type="text"
         bind:value={inputValue}
+        on:paste={handlePaste}
         placeholder="Search a Bitcoin address..."
         spellcheck="false"
         autocomplete="off"
@@ -159,7 +169,7 @@
   </form>
 
   {#if error}
-    <div class="error-display" in:fly={{ y: 20, duration: 300 }} out:fly={{ y: -20, duration: 200 }}>
+    <div class="error-display" in:fly|local={{ y: 20, duration: 300 }} out:fly|local={{ y: -20, duration: 200 }}>
       <strong>{error.message}</strong>
       {#if error.details}<p>{error.details}</p>{/if}
     </div>
@@ -189,7 +199,7 @@
   {/if}
 
   {#if result}
-    <div class="result-card" in:scale={{ duration: 300, start: 0.95 }} out:scale={{ duration: 150 }}>
+    <div class="result-card" in:scale|local={{ duration: 300, start: 0.95 }} out:scale|local={{ duration: 150 }}>
       <div class="result-main">
         <div class="category-display">
           {#if categoryInfo}
@@ -584,16 +594,16 @@
   }
 
   .result-footer {
+    position: relative;
     padding: 1rem 1.5rem;
     background-color: var(--background-secondary);
     border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
   }
 
   .graph-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1.5rem;
     background-color: transparent;
     color: var(--accent-color);
     border: 1.5px solid var(--border-color);
@@ -613,7 +623,6 @@
   }
 
   .features-details {
-    flex-grow: 1;
     min-width: 0;
   }
 
@@ -623,6 +632,8 @@
     color: var(--text-secondary);
     outline: none;
     padding: 0.5rem 0;
+    /* leave room for the absolutely-positioned View Graph button */
+    padding-right: 8rem;
   }
 
   .features-details summary:hover {
@@ -668,13 +679,15 @@
       align-self: center;
     }
 
-    .result-footer {
-      flex-direction: column;
-      align-items: stretch;
+    .graph-btn {
+      position: static;
+      display: block;
+      width: 100%;
+      margin-top: 1rem;
     }
 
-    .graph-btn {
-      width: 100%;
+    .features-details summary {
+      padding-right: 0;
     }
   }
 </style>

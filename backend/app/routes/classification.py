@@ -258,15 +258,21 @@ def get_category_distribution():
             func.count(Classification.id).label('count')
         ).group_by(Classification.classification).all()
         
-        # Convert to dictionary format with label mapping
+        # Convert to dictionary format with label mapping. Skip invalid/corrupt
+        # classification values (e.g. legacy negative or non-integer entries) so
+        # they don't surface as an "Unknown" category in the chart.
         distribution = {}
         for category_num, count in category_counts:
-            index = int(round(category_num))
-            if 0 <= index < len(categories):
-                category_name = categories[index]
-            else:
-                category_name = f'Unknown ({category_num})'
-            distribution[category_name] = count
+            if category_num is None:
+                continue
+            try:
+                index = int(round(float(category_num)))
+            except (TypeError, ValueError):
+                continue
+            if not (0 <= index < len(categories)):
+                continue
+            category_name = categories[index]
+            distribution[category_name] = distribution.get(category_name, 0) + count
         
         return jsonify(distribution)
         

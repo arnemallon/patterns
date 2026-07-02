@@ -103,7 +103,7 @@
   }
 </script>
 
-<div class="history-container" in:fly={{ y: 20, duration: 300 }}>
+<div class="history-container" in:fly|local={{ y: 20, duration: 300 }}>
     <div class="header">
         <div class="header-left">
           <h2>Classification History</h2>
@@ -118,7 +118,7 @@
     </div>
   
   {#if error}
-    <div class="error-display" in:fly={{ y: 20, duration: 300 }} out:fly={{ y: -20, duration: 200 }}>
+    <div class="error-display" in:fly|local={{ y: 20, duration: 300 }} out:fly|local={{ y: -20, duration: 200 }}>
       {error}
     </div>
   {/if}
@@ -136,7 +136,7 @@
         <tbody>
             {#if loading && classifications.length === 0}
                 {#each Array(5) as _, i}
-                  <tr class="skeleton-row" in:fly={{ y: 20, duration: 300, delay: i * 100 }}>
+                  <tr class="skeleton-row" in:fly|local={{ y: 20, duration: 300, delay: i * 100 }}>
                     <td><div class="skeleton-cell"></div></td>
                     <td><div class="skeleton-cell"></div></td>
                     <td><div class="skeleton-cell"></div></td>
@@ -157,8 +157,8 @@
                       class="history-item" 
                       on:click={() => handleAddressClick(item.address)} 
                       title="Click to re-classify this address"
-                      in:fly={{ y: 20, duration: 300, delay: i * 50 }}
-                      out:fly={{ y: -20, duration: 200 }}
+                      in:fly|local={{ y: 20, duration: 300, delay: i * 50 }}
+                      out:fly|local={{ y: -20, duration: 200 }}
                     >
                         <td class="date-cell">{formatDate(item.created_at)}</td>
                         <td><code title={item.address}>{formatAddress(item.address)}</code></td>
@@ -172,7 +172,7 @@
   </div>
 
   {#if totalPages > 1}
-    <div class="pagination-controls" in:fly={{ y: 20, duration: 300 }}>
+    <div class="pagination-controls" in:fly|local={{ y: 20, duration: 300 }}>
         <button on:click={prevPage} disabled={currentPage === 1 || loading}>
             &larr; Previous
         </button>

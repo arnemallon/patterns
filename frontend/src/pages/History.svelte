@@ -63,7 +63,7 @@
   }
 </script>
 
-<div class="history" in:fly={{ y: 20, duration: 500 }}>
+<div class="history" in:fly|local={{ y: 20, duration: 500 }}>
   <!-- Filters -->
   <div class="filters-section">
     <div class="filters-header">

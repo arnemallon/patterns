@@ -11,7 +11,6 @@
   let addressCountOverTime = {};
   let lastAddresses = null;
   let alerts = null;
-  let refreshingAlerts = false;
 
   // Individual loading flags so widgets can render independently
   let statsLoaded = false;
@@ -121,30 +120,6 @@
     navigate(`/analysis?address=${encodeURIComponent(address)}`);
   }
 
-  async function refreshAlerts() {
-    try {
-      refreshingAlerts = true;
-      const alertsResponse = await alertsApi.getTriggered();
-      const triggeredAlerts = alertsResponse.alerts || [];
-      
-      // Convert to dashboard format
-      alerts = triggeredAlerts.map(alert => ({
-        id: alert.id,
-        type: getAlertTypeLabel(alert.type),
-        description: `${alert.type.replace('_', ' ')} alert triggered for ${alert.address.substring(0, 8)}...`,
-        address: alert.address,
-        lastTriggered: alert.last_triggered ? new Date(alert.last_triggered) : null,
-        triggerCount: alert.trigger_count || 0
-      }));
-      
-      // Update pending alerts count
-      stats.pendingAlerts = triggeredAlerts.length;
-    } catch (error) {
-      console.error('Failed to refresh alerts:', error);
-    } finally {
-      refreshingAlerts = false;
-    }
-  }
 </script>
 
 <div class="dashboard" in:fly={{ y: 20, duration: 500 }}>
@@ -231,12 +206,7 @@
       <div class="dashboard-card alerts-widget">
         <div class="card-header">
           <h2>Alerts Triggered ({(alerts || []).length})</h2>
-          <div class="header-actions">
-            <button class="refresh-btn" on:click={refreshAlerts} title="Refresh alerts" disabled={refreshingAlerts}>
-              {refreshingAlerts ? '⟳' : '↻'}
-            </button>
-            <a href="/alerts" class="view-all">View All</a>
-          </div>
+          <a href="/alerts" class="view-all">View All</a>
         </div>
         <div class="alerts-widget-content">
           {#if alertsLoaded}
@@ -270,6 +240,7 @@
       <div class="dashboard-card recent-history-card">
         <div class="card-header">
           <h2>Recent Addresses</h2>
+          <a href="/history" class="view-all">View All</a>
         </div>
         <table class="recent-addresses-table">
           <thead>
@@ -339,9 +310,6 @@
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-md);
     margin-bottom: 0;
-    margin-left: 0;
-    margin-right: 0;
-    justify-items: start;
     width: 100%;
   }
 
@@ -387,7 +355,7 @@
     display: flex;
     flex-direction: row;
     gap: var(--spacing-lg);
-    align-items: flex-start;
+    align-items: stretch;
   }
   .left-col {
     flex: 3 1 0;
@@ -427,34 +395,6 @@
     font-size: var(--font-size-xl);
     font-weight: var(--font-weight-semibold);
     color: var(--text-primary);
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .refresh-btn {
-    background: none;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    padding: 0.25rem 0.5rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: all var(--transition-fast);
-  }
-
-  .refresh-btn:hover:not(:disabled) {
-    background: var(--background-secondary);
-    color: var(--text-primary);
-    border-color: var(--border-color-light);
-  }
-
-  .refresh-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .view-all {
@@ -515,7 +455,7 @@
   }
 
   .recent-history-card {
-    padding-top: var(--spacing-xl);
+    padding-top: var(--spacing-md);
     padding-right: 0;
     padding-bottom: 0;
     padding-left: 0;
@@ -524,9 +464,9 @@
     min-height: 140px;
   }
   .recent-history-card .card-header {
-    padding-left: var(--spacing-xl);
-    padding-right: var(--spacing-xl);
-    justify-content: flex-start;
+    padding-left: var(--spacing-md);
+    padding-right: var(--spacing-md);
+    justify-content: space-between;
   }
   .recent-history-card .card-header h2 {
     text-align: left;
@@ -590,12 +530,16 @@
   .no-alerts-text {
     color: var(--text-secondary);
     text-align: center;
-    padding: 2rem 0;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .alerts-widget {
-    min-height: 180px;
-    max-height: 280px;
+    flex: 1 1 0;
+    min-height: 140px;
     display: flex;
     flex-direction: column;
   }
@@ -614,6 +558,7 @@
       flex-direction: column;
     }
 
+    .left-col,
     .right-col {
       flex: 1 1 auto;
       width: 100%;

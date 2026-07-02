@@ -186,7 +186,12 @@
           {#if loading}
             <div class="loading-spinner"></div>
           {:else}
-            <button class="refresh-btn" on:click={refreshGraph} title="Refresh graph">↻</button>
+            <button class="refresh-btn" on:click={refreshGraph} title="Refresh graph" aria-label="Refresh graph">
+              <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </button>
           {/if}
           <button class="close-btn" on:click={closeGraph} title="Close graph">×</button>
         </div>
@@ -280,6 +285,14 @@
     width: 36px;
     height: 36px;
     color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .refresh-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
   }
   .refresh-btn:hover {
     background-color: var(--background-secondary);
